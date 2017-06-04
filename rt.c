@@ -204,7 +204,7 @@ static b32 rt_gc_type_needs_scan(struct rt_type *type) {
 }
 
 static void rt_gc_mark_array(char *ptr, struct rt_type *type) {
-    struct rt_any *f;
+    struct rt_any *any;
     struct rt_type *elem_type = type->target_type;
     u32 elem_size = elem_type->size;
     
@@ -220,9 +220,9 @@ static void rt_gc_mark_array(char *ptr, struct rt_type *type) {
     switch (elem_type->kind) {
     case RT_KIND_ANY:
         for (u32 i = 0; i < length; ++i) {
-            f = (struct rt_any *)(ptr + i*elem_size);
-            if (f->type) {
-                rt_gc_mark_single((char *)&f->u.data, f->type);
+            any = (struct rt_any *)(ptr + i*elem_size);
+            if (any->type) {
+                rt_gc_mark_single((char *)&any->u.data, any->type);
             }
         }
         break;
@@ -253,15 +253,15 @@ static void rt_gc_mark_array(char *ptr, struct rt_type *type) {
 }
 
 static void rt_gc_mark_single(char *ptr, struct rt_type *type) {
-    struct rt_any *f;
+    struct rt_any *any;
     switch (type->kind) {
     case RT_KIND_BOX:
         rt_gc_mark_box((struct rt_box *)ptr, type->target_type);
         break;
     case RT_KIND_ANY:
-        f = (struct rt_any *)ptr;
-        if (f->type) {
-            rt_gc_mark_single((char *)&f->u.data, f->type);
+        any = (struct rt_any *)ptr;
+        if (any->type) {
+            rt_gc_mark_single((char *)&any->u.data, any->type);
         }
         break;
     case RT_KIND_PTR:
@@ -423,6 +423,132 @@ struct rt_type rt_type_ptr_box_symbol = { RT_KIND_PTR, 0, &rt_type_box_symbol };
 #define rt_cdr(box) (((struct rt_cons *)((char *)(box) + sizeof(struct rt_box)))->cdr)
 
 
+
+void rt_print_any(struct rt_any any);
+
+void rt_print(char *ptr, struct rt_type *type) {
+    if (!type) {
+        printf("nil");
+        return;
+    }
+    switch (type->kind) {
+    case RT_KIND_BOX:
+        rt_print(ptr + sizeof(struct rt_box), type->target_type);
+        break;
+    case RT_KIND_ANY: {
+        struct rt_any *any = (struct rt_any *)ptr;
+        rt_print((char *)&any->u.data, any->type);
+        break;
+    }
+    case RT_KIND_PTR:
+    case RT_KIND_BOX_PTR:
+        rt_print(*(char **)ptr, type->target_type);
+        break;
+    case RT_KIND_STRUCT: {
+        if (type == &rt_type_string) {
+            struct rt_string *string = (struct rt_string *)ptr;
+            printf("\"%s\"", string->chars.data);
+            break;
+        }
+        if (type == &rt_type_symbol) {
+            struct rt_symbol *sym = (struct rt_symbol *)ptr;
+            printf("%s", sym->string.chars.data);
+            break;
+        }
+        if (type == &rt_type_cons) {
+            struct rt_cons *cons = (struct rt_cons *)ptr;
+            b32 first = TRUE;
+            printf("(");
+            for (;;) {
+                if (!first) {
+                    printf(" ");
+                }
+                first = FALSE;
+                rt_print_any(cons->car);
+                if (!cons->cdr.type) {
+                    break;
+                }
+                if (cons->cdr.type != &rt_type_ptr_box_cons) {
+                    printf(" . ");
+                    rt_print_any(cons->cdr);
+                    break;
+                }
+                cons = (struct rt_cons *)(cons->cdr.u.box + 1);
+            }
+            printf(")");
+            break;
+        }
+        printf("{");
+        for (u32 i = 0; i < type->field_count; ++i) {
+            struct rt_struct_field *f = type->fields + i;
+            printf("%s: ", f->name);
+            rt_print(ptr + f->offset, f->type);
+            if (i != type->field_count - 1) {
+                printf(", ");
+            }
+        }
+        printf("}");
+        break;
+    }
+    case RT_KIND_ARRAY: {
+        printf("[");
+        struct rt_type *elem_type = type->target_type;
+        u32 elem_size = elem_type->size;
+        u32 length;
+        if (type->size) {
+            length = type->size / elem_size;
+        } else {
+            length = *(u32 *)ptr;
+            ptr += sizeof(u32);
+        }
+        for (u32 i = 0; i < length; ++i) {
+            rt_print(ptr + i*elem_size, elem_type);
+            if (i != length - 1) {
+                printf(" ");
+            }
+        }
+        printf("]");
+        break;
+    }
+    case RT_KIND_BOOL:
+        switch (type->size) {
+        case 1: printf("%s", *(b8 *)ptr ? "true" : "false"); break;
+        case 4: printf("%s", *(b32 *)ptr ? "true" : "false"); break;
+        }
+        break;
+    case RT_KIND_SIGNED:
+        switch (type->size) {
+        case 1: printf("%d", *(i8 *)ptr); break;
+        case 2: printf("%d", *(i16 *)ptr); break;
+        case 4: printf("%d", *(i32 *)ptr); break;
+        case 8: printf("%lld", *(i64 *)ptr); break;
+        }
+        break;
+    case RT_KIND_UNSIGNED:
+        switch (type->size) {
+        case 1: printf("%u", *(u8 *)ptr); break;
+        case 2: printf("%u", *(u16 *)ptr); break;
+        case 4: printf("%u", *(u32 *)ptr); break;
+        case 8: printf("%llu", *(u64 *)ptr); break;
+        }
+        break;
+    case RT_KIND_REAL:
+        switch (type->size) {
+        case 4: printf("%f", *(f32 *)ptr); break;
+        case 8: printf("%f", *(f64 *)ptr); break;
+        }
+        break;
+    }
+}
+
+void rt_print_any(struct rt_any any) {
+    rt_print((char *)&any.u.data, any.type);
+}
+
+
+
+
+
 int main(int argc, char *argv[]) {
     struct rt_thread_ctx ctx = {0,};
 
@@ -431,10 +557,15 @@ int main(int argc, char *argv[]) {
     struct rt_any z = rt_new_string_from_cstring(&ctx, "baz");
 
     struct rt_any arr = rt_new_array(&ctx, 10, &rt_type_ptr_box_array_any);
-    rt_box_array_ref(arr.u.ptr, struct rt_any, 0) = z;
+    rt_box_array_ref(arr.u.box, struct rt_any, 0) = z;
 
-    struct rt_any cons = rt_new_cons(&ctx, y, z);
-    rt_box_array_ref(arr.u.ptr, struct rt_any, 1) = cons;
+    struct rt_any cons = rt_new_cons(&ctx, y, rt_new_cons(&ctx, rt_new_cons(&ctx, rt_new_u8(1), rt_new_u8(2)), rt_new_cons(&ctx, z, rt_any_nil)));
+    rt_box_array_ref(arr.u.box, struct rt_any, 1) = cons;
+
+    rt_box_array_ref(arr.u.box, struct rt_any, 2) = rt_new_b32(FALSE);
+    rt_box_array_ref(arr.u.box, struct rt_any, 3) = rt_new_u8(99);
+
+    rt_print_any(arr); printf("\n");
 
     struct rt_type *types[4] = { &rt_type_any, &rt_type_any, &rt_type_any, NULL };
     void *roots[5] = { ctx.roots, types, &x, &y, &arr };
@@ -443,13 +574,13 @@ int main(int argc, char *argv[]) {
 
     printf("-\n");
 
-    rt_box_array_ref(arr.u.ptr, struct rt_any, 0) = rt_any_nil;
-    rt_cdr(cons.u.ptr) = rt_any_nil;
+    rt_box_array_ref(arr.u.box, struct rt_any, 0) = rt_any_nil;
+    rt_cdr(cons.u.box) = rt_any_nil;
     rt_gc_run(&ctx);
 
     printf("-\n");
 
-    rt_box_array_ref(arr.u.ptr, struct rt_any, 1) = rt_any_nil;
+    rt_box_array_ref(arr.u.box, struct rt_any, 1) = rt_any_nil;
     rt_gc_run(&ctx);
 
     printf("-\n");
