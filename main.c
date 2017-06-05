@@ -9,6 +9,7 @@ int main(int argc, char *argv[]) {
 
     rt_init_types();
 
+    assert(rt_get_symbol("sym").u.ptr == rt_get_symbol("sym").u.ptr);
     assert(rt_any_equals(rt_new_u8(23), rt_new_i64(23)));
     assert(rt_any_equals(rt_get_symbol("sym"), rt_get_symbol("sym")));
     assert(!rt_any_equals(rt_get_symbol("sym"), rt_get_symbol("sym2")));
@@ -30,6 +31,10 @@ int main(int argc, char *argv[]) {
     rt_box_array_ref(arr.u.ptr, struct rt_any, 6) = rt_new_cons(&ctx, rt_nil, rt_nil);
     rt_box_array_ref(arr.u.ptr, struct rt_any, 6) = rt_get_symbol("sym");
     rt_box_array_ref(arr.u.ptr, struct rt_any, 7) = rt_read(&ctx, "(foo bar baz)");
+
+    struct rt_any parent_form = rt_read(&ctx, "((array u32 8))");
+    rt_print(parent_form); printf("\n");
+    struct rt_type *type = rt_parse_type(&ctx, parent_form, rt_car(parent_form.u.ptr));
 
     rt_print(arr); printf("\n");
 

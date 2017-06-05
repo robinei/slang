@@ -5,28 +5,62 @@
 #include <string.h>
 #include <stdlib.h>
 
+struct rt_symbol_index rt_symbols;
 struct rt_type_index rt_types;
 
 struct rt_any rt_nil;
 
+
+static u32 pointer_hash(struct rt_symbol *ptr) {
+    u32 val = (u32)(intptr_t)ptr;
+    val = ~val + (val << 15);
+    val = val ^ (val >> 12);
+    val = val + (val << 2);
+    val = val ^ (val >> 4);
+    val = val * 2057;
+    val = val ^ (val >> 16);
+    return val;
+}
+static b32 pointer_equals(struct rt_symbol *a, struct rt_symbol *b) {
+    return a == b;
+}
+DECL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *)
+IMPL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *, pointer_hash, pointer_equals)
+
+static struct typemap typemap;
+
+
+#define DEF_SIMPLE_TYPE(type, name, kind) \
+    rt_symbols.name = rt_get_symbol(#name); \
+    rt_types.name = rt_gettype_simple(kind, sizeof(type)); \
+    typemap_put(&typemap, rt_symbols.name.u.ptr, rt_types.name);
+
 void rt_init_types() {
-    rt_types.any = rt_gettype_simple(RT_KIND_ANY, sizeof(struct rt_any));
+    struct rt_struct_field string_fields[1] = {{ rt_gettype_array(rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u8)), 0), "chars", 0 }};
+    rt_types.string = rt_gettype_struct(0, 1, string_fields);
+    rt_types.boxed_string = rt_gettype_boxed(rt_types.string);
 
-    rt_types.u8 = rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u8));
-    rt_types.u16 = rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u16));
-    rt_types.u32 = rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u32));
-    rt_types.u64 = rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u64));
+    struct rt_struct_field symbol_fields[1] = {{ rt_types.string, "string", 0 }};
+    rt_types.symbol = rt_gettype_struct(0, 1, symbol_fields);
+    rt_types.ptr_symbol = rt_gettype_ptr(rt_types.symbol);
 
-    rt_types.i8 = rt_gettype_simple(RT_KIND_SIGNED, sizeof(i8));
-    rt_types.i16 = rt_gettype_simple(RT_KIND_SIGNED, sizeof(i16));
-    rt_types.i32 = rt_gettype_simple(RT_KIND_SIGNED, sizeof(i32));
-    rt_types.i64 = rt_gettype_simple(RT_KIND_SIGNED, sizeof(i64));
+    DEF_SIMPLE_TYPE(struct rt_any, any, RT_KIND_ANY);
 
-    rt_types.f32 = rt_gettype_simple(RT_KIND_REAL, sizeof(f32));
-    rt_types.f64 = rt_gettype_simple(RT_KIND_REAL, sizeof(u64));
+    DEF_SIMPLE_TYPE(u8, u8, RT_KIND_UNSIGNED);
+    DEF_SIMPLE_TYPE(u16, u16, RT_KIND_UNSIGNED);
+    DEF_SIMPLE_TYPE(u32, u32, RT_KIND_UNSIGNED);
+    DEF_SIMPLE_TYPE(u64, u64, RT_KIND_UNSIGNED);
 
-    rt_types.b8 = rt_gettype_simple(RT_KIND_BOOL, sizeof(b8));
-    rt_types.b32 = rt_gettype_simple(RT_KIND_BOOL, sizeof(b32));
+    DEF_SIMPLE_TYPE(i8, i8, RT_KIND_SIGNED);
+    DEF_SIMPLE_TYPE(i16, i16, RT_KIND_SIGNED);
+    DEF_SIMPLE_TYPE(i32, i32, RT_KIND_SIGNED);
+    DEF_SIMPLE_TYPE(i64, i64, RT_KIND_SIGNED);
+
+    DEF_SIMPLE_TYPE(f32, f32, RT_KIND_REAL);
+    DEF_SIMPLE_TYPE(f64, f64, RT_KIND_REAL);
+
+    DEF_SIMPLE_TYPE(b8, b8, RT_KIND_BOOL);
+    DEF_SIMPLE_TYPE(b32, b32, RT_KIND_BOOL);
 
     struct rt_struct_field cons_fields[2] = {
         { rt_types.any, "car", offsetof(struct rt_cons, car) },
@@ -34,14 +68,15 @@ void rt_init_types() {
     };
     rt_types.cons = rt_gettype_struct(sizeof(struct rt_cons), 2, cons_fields);
     rt_types.boxed_cons = rt_gettype_boxed(rt_types.cons);
+}
 
-    struct rt_struct_field string_fields[1] = {{ rt_gettype_array(rt_types.u8, 0), "chars", 0 }};
-    rt_types.string = rt_gettype_struct(0, 1, string_fields);
-    rt_types.boxed_string = rt_gettype_boxed(rt_types.string);
-
-    struct rt_struct_field symbol_fields[1] = {{ rt_types.string, "string", 0 }};
-    rt_types.symbol = rt_gettype_struct(0, 1, symbol_fields);
-    rt_types.ptr_symbol = rt_gettype_ptr(rt_types.symbol);
+struct rt_type *rt_lookup_simple_type(struct rt_any sym) {
+    assert(sym.type == rt_types.ptr_symbol);
+    struct rt_type *result;
+    if (typemap_get(&typemap, sym.u.ptr, &result)) {
+        return result;
+    }
+    return NULL;
 }
 
 struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct rt_any cdr) {
@@ -108,11 +143,11 @@ static struct symtab symtab;
 struct rt_any rt_get_symbol(const char *str) {
     struct rt_symbol *sym;
     if (!symtab_get(&symtab, str, &sym)) {
-        u32 length = strlen(str);
+        rt_size_t length = strlen(str);
         sym = calloc(1, sizeof(struct rt_symbol) + length + 1);
         sym->string.chars.length = length;
         memcpy(sym->string.chars.data, str, length + 1);
-        symtab_put(&symtab, str, sym);
+        symtab_put(&symtab, sym->string.chars.data, sym);
     }
     struct rt_any any;
     any.type = rt_types.ptr_symbol;

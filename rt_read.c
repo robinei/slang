@@ -216,7 +216,8 @@ static struct rt_any read_symbol(struct reader_state *state) {
                 read_error(state, "string is too long");
             }
             scratch[len] = '\0';
-            return rt_get_symbol(scratch);
+            struct rt_any result = rt_get_symbol(scratch);
+            return result;
         }
         if (len >= SCRATCH_LEN) {
             read_error(state, "string is too long");

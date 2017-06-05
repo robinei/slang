@@ -28,6 +28,8 @@ enum rt_kind {
 
     /* function */
     RT_KIND_FUNC,
+
+    RT_KIND_TYPE,
 };
 
 enum {
@@ -54,7 +56,7 @@ struct rt_type {
             /* how many bytes from end of box header to pointee */
             rt_size_t box_offset;
         } ptr;
-        
+
         struct {
             u32 field_count;
             struct rt_struct_field *fields;
@@ -88,6 +90,9 @@ struct rt_any {
     union {
         uintptr_t data;
         void *ptr;
+        struct rt_cons *cons;
+        struct rt_string *string;
+        struct rt_symbol *symbol;
         u8 u8;
         u16 u16;
         u32 u32;
@@ -145,6 +150,26 @@ struct rt_thread_ctx {
     struct rt_sourcemap sourcemap;
 };
 
+struct rt_symbol_index {
+    struct rt_any any;
+
+    struct rt_any u8;
+    struct rt_any u16;
+    struct rt_any u32;
+    struct rt_any u64;
+
+    struct rt_any i8;
+    struct rt_any i16;
+    struct rt_any i32;
+    struct rt_any i64;
+
+    struct rt_any f32;
+    struct rt_any f64;
+
+    struct rt_any b8;
+    struct rt_any b32;
+};
+
 struct rt_type_index {
     /* for lookup and "uniquification" */
     struct rt_type *types_simple;
@@ -184,7 +209,8 @@ struct rt_type_index {
     struct rt_type *ptr_symbol;
 };
 
-/* global type index. TODO: protect with locks if threading becomes a thing */
+/* global value indexes . TODO: protect with locks if threading becomes a thing */
+extern struct rt_symbol_index rt_symbols;
 extern struct rt_type_index rt_types;
 
 /* nil har NULL type and ptr/data. not ideal, but worth it to make 0-inited any values be nil */
@@ -202,8 +228,17 @@ struct rt_type *rt_gettype_boxed_array(struct rt_type *elem_type, rt_size_t leng
 struct rt_type *rt_gettype_struct(rt_size_t size, u32 field_count, struct rt_struct_field *fields);
 
 b32 rt_any_to_b32(struct rt_any a);
+f64 rt_any_to_f64(struct rt_any a);
+u64 rt_any_to_u64(struct rt_any a);
+i64 rt_any_to_i64(struct rt_any a);
 struct rt_any rt_weak_any(struct rt_any any);
+struct rt_any rt_any_to_signed(struct rt_any a);
+struct rt_any rt_any_to_unsigned(struct rt_any a);
 b32 rt_any_equals(struct rt_any a, struct rt_any b);
+
+#define rt_any_is_nil(any) (!(any).type || ((any).type == rt_types.boxed_cons && !(any).u.ptr))
+#define rt_any_is_cons(any) ((any).type == rt_types.boxed_cons && (any).u.ptr)
+#define rt_any_is_symbol(any) ((any).type == rt_types.ptr_symbol)
 
 /* allocate a boxed chunk of memory which will be managed by the GC.
    the box header precedes the location pointed to by the returned pointer */
@@ -213,6 +248,8 @@ void rt_gc_run(struct rt_thread_ctx *ctx);
 struct rt_any rt_read(struct rt_thread_ctx *ctx, const char *text);
 
 void rt_print(struct rt_any any);
+
+struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any parent_form, struct rt_any form);
 
 
 #define RT_DEF_SCALAR(name, kind) \
@@ -224,7 +261,7 @@ void rt_print(struct rt_any any);
     } \
     struct rt_array_##name { \
         rt_size_t length; \
-        name data[]; \
+        name data[7]; \
     };
 
 RT_DEF_SCALAR(i8, RT_KIND_SIGNED)
@@ -245,6 +282,7 @@ RT_DEF_SCALAR(b32, RT_KIND_BOOL)
 
 
 void rt_init_types();
+struct rt_type *rt_lookup_simple_type(struct rt_any sym);
 struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct rt_any cdr);
 struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct rt_type *ptr_type);
 struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str);
@@ -261,6 +299,10 @@ struct rt_string {
 
 struct rt_symbol {
     struct rt_string string;
+};
+
+struct rt_func {
+    struct rt_astnode *ast;
 };
 
 #define rt_box_array_ref(ptr, type, index) (((type *)((char *)(ptr) + sizeof(rt_size_t)))[index])

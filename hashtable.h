@@ -53,18 +53,18 @@ static uint32_t hashutil_dist_to_start(uint32_t table_size, uint32_t hash, uint3
         }                                                               \
         uint32_t hash = name##_calc_hash(key);                          \
         uint32_t start_index = hash & (table->size - 1);                \
-        uint32_t probe = 0;                                             \
-        for (uint32_t i = 0; i < table->size; ++i, ++probe) {           \
+        for (uint32_t i = 0; i < table->size; ++i) {                    \
             uint32_t index = (start_index + i) & (table->size - 1);     \
             struct name##_entry *slot = table->entries + index;         \
             if (slot->hash == hash && key_equals(slot->key, key)) {     \
                 *index_out = index;                                     \
                 return 1;                                               \
             }                                                           \
-            if (slot->hash != 0) {                                      \
-                probe = hashutil_dist_to_start(table->size, slot->hash, index); \
+            if (slot->hash == 0) {                                      \
+                break;                                                  \
             }                                                           \
-            if (i > probe) {                                            \
+            uint32_t d = hashutil_dist_to_start(table->size, slot->hash, index); \
+            if (i > d) {                                                \
                 break;                                                  \
             }                                                           \
         }                                                               \

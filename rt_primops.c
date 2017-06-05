@@ -21,7 +21,7 @@ b32 rt_any_to_b32(struct rt_any a) {
     return a.u.b32;
 }
 
-static f64 rt_any_to_f64(struct rt_any a) {
+f64 rt_any_to_f64(struct rt_any a) {
     assert(a.type->kind == RT_KIND_REAL);
     if (a.type->size == 4) {
         return a.u.f32;
@@ -29,7 +29,7 @@ static f64 rt_any_to_f64(struct rt_any a) {
     return a.u.f64;
 }
 
-static u64 rt_any_to_u64(struct rt_any a) {
+u64 rt_any_to_u64(struct rt_any a) {
     assert(a.type->kind == RT_KIND_UNSIGNED);
     switch (a.type->size) {
     case 1: return a.u.u8;
@@ -40,7 +40,7 @@ static u64 rt_any_to_u64(struct rt_any a) {
     }
 }
 
-static i64 rt_any_to_i64(struct rt_any a) {
+i64 rt_any_to_i64(struct rt_any a) {
     assert(a.type->kind == RT_KIND_SIGNED);
     switch (a.type->size) {
     case 1: return a.u.i8;
@@ -51,7 +51,7 @@ static i64 rt_any_to_i64(struct rt_any a) {
     }
 }
 
-static struct rt_any rt_any_to_signed(struct rt_any a) {
+struct rt_any rt_any_to_signed(struct rt_any a) {
     if (a.type->kind == RT_KIND_UNSIGNED) {
         u64 uval = rt_any_to_u64(a);
         if (uval < INT64_MAX) {
@@ -61,7 +61,7 @@ static struct rt_any rt_any_to_signed(struct rt_any a) {
     return a;
 }
 
-static struct rt_any rt_any_to_unsigned(struct rt_any a) {
+struct rt_any rt_any_to_unsigned(struct rt_any a) {
     if (a.type->kind == RT_KIND_SIGNED) {
         i64 ival = rt_any_to_i64(a);
         if (ival >= 0) {
