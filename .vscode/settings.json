@@ -1,4 +1,11 @@
 {
+    "files.exclude": {
+        "CMakeFiles/": true,
+        "CMakeCache.txt": true,
+        "cmake_install.cmake": true,
+        "Makefile": true,
+        "main": true
+    },
     "files.associations": {
         "utility": "cpp",
         "type_traits": "cpp"
