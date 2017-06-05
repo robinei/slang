@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -49,6 +50,9 @@ enum rt_kind {
     RT_KIND_SIGNED,
     RT_KIND_UNSIGNED,
     RT_KIND_REAL,
+
+    /* function */
+    RT_KIND_FUN,
 };
 
 enum {
@@ -82,6 +86,11 @@ struct rt_type {
         struct {
             struct rt_type *elem_type;
         } array;
+        struct {
+            u32 param_count;
+            struct rt_fun_param *params;
+            struct rt_type *return_type;
+        } fun;
     } u;
 };
 
@@ -89,6 +98,11 @@ struct rt_struct_field {
     struct rt_type *type;
     const char *name;
     rt_size_t offset;
+};
+
+struct rt_fun_param {
+    struct rt_type *type;
+    const char *name;
 };
 
 struct rt_any {
@@ -142,6 +156,7 @@ struct rt_thread_ctx {
     u32 max_weakptrs;
     struct rt_weakptr_entry *weakptrs;
 };
+
 
 
 
@@ -700,7 +715,7 @@ void rt_print(char *ptr, struct rt_type *type) {
         printf("{");
         u32 field_count = type->u._struct.field_count;
         for (u32 i = 0; i < field_count; ++i) {
-            struct rt_struct_field *f = field_count + i;
+            struct rt_struct_field *f = type->u._struct.fields + i;
             printf("%s: ", f->name);
             rt_print(ptr + f->offset, f->type);
             if (i != field_count - 1) {
@@ -814,6 +829,8 @@ struct rt_any rt_weak_any(struct rt_any any) {
     new_any.u.ptr = any.u.ptr;
     return new_any;
 }
+
+
 
 
 
