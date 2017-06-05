@@ -39,6 +39,7 @@ static uint32_t hashutil_dist_to_start(uint32_t table_size, uint32_t hash, uint3
         for (uint32_t i = 0; i < table->size; ++i) {                    \
             table->entries[i].hash = 0;                                 \
         }                                                               \
+        table->used = 0;                                                \
     }                                                                   \
     uint32_t name##_calc_hash(key_type key) {                           \
         uint32_t hash = key_hasher(key);                                \
@@ -141,8 +142,8 @@ static uint32_t hashutil_dist_to_start(uint32_t table_size, uint32_t hash, uint3
     }                                                                   \
     void name##_put(struct name *table, key_type key, value_type value) { \
         struct name##_entry entry;                                      \
-        if ((float)table->used / table->size > 0.85f) {                 \
-            name##_resize(table, table->size * 2);                      \
+        if (!table->size || (float)table->used / table->size > 0.85f) { \
+            name##_resize(table, table->size ? table->size * 2 : 16);   \
         }                                                               \
         entry.hash = name##_calc_hash(key);                             \
         entry.key = key;                                                \

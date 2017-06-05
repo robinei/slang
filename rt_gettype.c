@@ -1,5 +1,6 @@
 #include "rt.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 struct rt_type *rt_gettype_simple(enum rt_kind kind, rt_size_t size) {
@@ -60,7 +61,7 @@ struct rt_type *rt_gettype_boxed(struct rt_type *target_type) {
     return rt_gettype_boxptr(target_type, target_type, 0);
 }
 
-struct rt_type *rt_gettype_weakptr(struct rt_type *ptr_type) {
+struct rt_type *rt_gettype_weak(struct rt_type *ptr_type) {
     assert(ptr_type->kind == RT_KIND_PTR);
     assert(ptr_type->u.ptr.box_type);
     struct rt_type *existing = rt_types.types_weakptr;
@@ -82,8 +83,8 @@ struct rt_type *rt_gettype_weakptr(struct rt_type *ptr_type) {
     return new_type;
 }
 
-struct rt_type *rt_gettype_weakptr_boxed(struct rt_type *target_type) {
-    return rt_gettype_weakptr(rt_gettype_boxed(target_type));
+struct rt_type *rt_gettype_weak_boxed(struct rt_type *target_type) {
+    return rt_gettype_weak(rt_gettype_boxed(target_type));
 }
 
 struct rt_type *rt_gettype_array(struct rt_type *elem_type, rt_size_t length) {

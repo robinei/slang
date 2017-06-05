@@ -76,6 +76,7 @@ void rt_print(char *ptr, struct rt_type *type) {
         if (type->size) {
             length = type->size / elem_size;
         } else {
+            /* an unsized array starts with a length */
             length = *(rt_size_t *)ptr;
             ptr += sizeof(rt_size_t);
         }

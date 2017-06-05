@@ -169,9 +169,10 @@ struct rt_type_index {
     struct rt_type *ptr_symbol;
 };
 
-/* global type index. protect with locks if threading becomes a thing */
+/* global type index. TODO: protect with locks if threading becomes a thing */
 extern struct rt_type_index rt_types;
 
+/* nil har NULL type and ptr/data. not ideal, but worth it to make 0-inited any values be nil */
 extern struct rt_any rt_nil;
 
 
@@ -179,69 +180,75 @@ struct rt_type *rt_gettype_simple(enum rt_kind kind, rt_size_t size);
 struct rt_type *rt_gettype_ptr(struct rt_type *target_type);
 struct rt_type *rt_gettype_boxptr(struct rt_type *target_type, struct rt_type *box_type, rt_size_t box_offset);
 struct rt_type *rt_gettype_boxed(struct rt_type *target_type);
-struct rt_type *rt_gettype_weakptr(struct rt_type *ptr_type);
-struct rt_type *rt_gettype_weakptr_boxed(struct rt_type *target_type);
+struct rt_type *rt_gettype_weak(struct rt_type *ptr_type);
+struct rt_type *rt_gettype_weak_boxed(struct rt_type *target_type);
 struct rt_type *rt_gettype_array(struct rt_type *elem_type, rt_size_t length);
 struct rt_type *rt_gettype_boxed_array(struct rt_type *elem_type, rt_size_t length);
 struct rt_type *rt_gettype_struct(rt_size_t size, u32 field_count, struct rt_struct_field *fields);
 
-void rt_init_types();
-struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct rt_any cdr);
-struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct rt_type *ptr_type);
-struct rt_any rt_new_string_from_cstring(struct rt_thread_ctx *ctx, const char *data);
 struct rt_any rt_weak_any(struct rt_any any);
+b32 rt_any_equals(struct rt_any a, struct rt_any b);
 
-struct rt_box *rt_gc_alloc(struct rt_thread_ctx *ctx, rt_size_t size);
+/* allocate a boxed chunk of memory which will be managed by the GC.
+   the box header precedes the location pointed to by the returned pointer */
+void *rt_gc_alloc(struct rt_thread_ctx *ctx, rt_size_t size);
 void rt_gc_run(struct rt_thread_ctx *ctx);
 
 void rt_print(char *ptr, struct rt_type *type);
 void rt_print_any(struct rt_any any);
 
 
-#define RT_DEF_SCALAR_MAKER(name, kind) \
+#define RT_DEF_SCALAR(name, kind) \
     static struct rt_any rt_new_##name(name value) { \
         struct rt_any any; \
         any.type = rt_types.name; \
         any.u.name = value; \
         return any; \
-    }
+    } \
+    struct rt_array_##name { \
+        rt_size_t length; \
+        name data[]; \
+    };
 
-RT_DEF_SCALAR_MAKER(i8, RT_KIND_SIGNED)
-RT_DEF_SCALAR_MAKER(i16, RT_KIND_SIGNED)
-RT_DEF_SCALAR_MAKER(i32, RT_KIND_SIGNED)
-RT_DEF_SCALAR_MAKER(i64, RT_KIND_SIGNED)
+RT_DEF_SCALAR(i8, RT_KIND_SIGNED)
+RT_DEF_SCALAR(i16, RT_KIND_SIGNED)
+RT_DEF_SCALAR(i32, RT_KIND_SIGNED)
+RT_DEF_SCALAR(i64, RT_KIND_SIGNED)
 
-RT_DEF_SCALAR_MAKER(u8, RT_KIND_UNSIGNED)
-RT_DEF_SCALAR_MAKER(u16, RT_KIND_UNSIGNED)
-RT_DEF_SCALAR_MAKER(u32, RT_KIND_UNSIGNED)
-RT_DEF_SCALAR_MAKER(u64, RT_KIND_UNSIGNED)
+RT_DEF_SCALAR(u8, RT_KIND_UNSIGNED)
+RT_DEF_SCALAR(u16, RT_KIND_UNSIGNED)
+RT_DEF_SCALAR(u32, RT_KIND_UNSIGNED)
+RT_DEF_SCALAR(u64, RT_KIND_UNSIGNED)
 
-RT_DEF_SCALAR_MAKER(f32, RT_KIND_REAL)
-RT_DEF_SCALAR_MAKER(f64, RT_KIND_REAL)
+RT_DEF_SCALAR(f32, RT_KIND_REAL)
+RT_DEF_SCALAR(f64, RT_KIND_REAL)
 
-RT_DEF_SCALAR_MAKER(b8, RT_KIND_BOOL)
-RT_DEF_SCALAR_MAKER(b32, RT_KIND_BOOL)
+RT_DEF_SCALAR(b8, RT_KIND_BOOL)
+RT_DEF_SCALAR(b32, RT_KIND_BOOL)
 
 
+void rt_init_types();
+struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct rt_any cdr);
+struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct rt_type *ptr_type);
+struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str);
+struct rt_any rt_get_symbol(const char *str);
 
 struct rt_cons {
     struct rt_any car;
     struct rt_any cdr;
 };
 
-struct rt_array_u8 {
-    rt_size_t length;
-    u8 data[1];
+struct rt_string {
+    struct rt_array_u8 chars;
 };
 
-struct rt_string { struct rt_array_u8 chars; };
+struct rt_symbol {
+    struct rt_string string;
+};
 
-struct rt_symbol { struct rt_string string; };
+#define rt_box_array_ref(ptr, type, index) (((type *)((char *)(ptr) + sizeof(rt_size_t)))[index])
 
-
-#define rt_box_array_ref(box, type, index) (((type *)((char *)(box) + sizeof(rt_size_t)))[index])
-
-#define rt_car(box) (((struct rt_cons *)(box))->car)
-#define rt_cdr(box) (((struct rt_cons *)(box))->cdr)
+#define rt_car(ptr) (((struct rt_cons *)(ptr))->car)
+#define rt_cdr(ptr) (((struct rt_cons *)(ptr))->cdr)
 
 #endif

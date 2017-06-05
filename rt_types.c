@@ -1,6 +1,9 @@
 #include "rt.h"
+#include "hashtable.h"
+#include "murmur3.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 struct rt_type_index rt_types;
 
@@ -42,14 +45,13 @@ void rt_init_types() {
 }
 
 struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct rt_any cdr) {
-    struct rt_box *box = rt_gc_alloc(ctx, sizeof(struct rt_cons));
-    struct rt_cons *cons = (struct rt_cons *)(box + 1);
+    struct rt_cons *cons = rt_gc_alloc(ctx, sizeof(struct rt_cons));
     cons->car = car;
     cons->cdr = cdr;
 
     struct rt_any any;
     any.type = rt_types.boxed_cons;
-    any.u.ptr = box + 1;
+    any.u.ptr = cons;
     return any;
 }
 
@@ -66,37 +68,54 @@ struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct r
     rt_size_t elem_size = elem_type->size;
     assert(elem_size);
     
-    struct rt_box *box = rt_gc_alloc(ctx, sizeof(rt_size_t) + length*elem_size);
-    *(rt_size_t *)(box + 1) = length;
+    void *array = rt_gc_alloc(ctx, sizeof(rt_size_t) + length*elem_size);
+    *(rt_size_t *)array = length;
 
     struct rt_any any;
     any.type = ptr_type;
-    any.u.ptr = box + 1;
+    any.u.ptr = array;
     return any;
 }
 
-struct rt_any rt_new_string_from_cstring(struct rt_thread_ctx *ctx, const char *data) {
-    rt_size_t length = strlen(data);
-    struct rt_box *box = rt_gc_alloc(ctx, sizeof(rt_size_t) + length + 1);
-    struct rt_string *string = (struct rt_string *)(box + 1);
+struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str) {
+    rt_size_t length = strlen(str);
+    struct rt_string *string = rt_gc_alloc(ctx, sizeof(struct rt_string) + length + 1);
     string->chars.length = length;
-    memcpy(string->chars.data, data, length + 1);
+    memcpy(string->chars.data, str, length + 1);
 
     struct rt_any any;
     any.type = rt_types.boxed_string;
-    any.u.ptr = box + 1;
+    any.u.ptr = string;
     return any;
 }
 
-struct rt_any rt_weak_any(struct rt_any any) {
-    if (!any.type) {
-        return any;
+
+static uint32_t str_hash(const char *key) {
+    uint32_t hash;
+    MurmurHash3_x86_32(key, strlen(key), 0, &hash);
+    return hash;
+}
+static int str_equals(const char *a, const char *b) {
+    return strcmp(a, b) == 0;
+}
+DECL_HASH_TABLE(symtab, const char *, struct rt_symbol *)
+IMPL_HASH_TABLE(symtab, const char *, struct rt_symbol *, str_hash, str_equals)
+
+static struct symtab symtab;
+
+/* TODO: add locking around symtab access if threading becomes a thing */
+
+struct rt_any rt_get_symbol(const char *str) {
+    struct rt_symbol *sym;
+    if (!symtab_get(&symtab, str, &sym)) {
+        u32 length = strlen(str);
+        sym = calloc(1, sizeof(struct rt_symbol) + length + 1);
+        sym->string.chars.length = length;
+        memcpy(sym->string.chars.data, str, length + 1);
+        symtab_put(&symtab, str, sym);
     }
-    if (any.type->kind != RT_KIND_PTR) {
-        return any;
-    }
-    struct rt_any new_any;
-    new_any.type = rt_gettype_weakptr(any.type);
-    new_any.u.ptr = any.u.ptr;
-    return new_any;
+    struct rt_any any;
+    any.type = rt_types.ptr_symbol;
+    any.u.ptr = sym;
+    return any;
 }

@@ -1,16 +1,19 @@
 #include "rt.h"
 
+#include <stdlib.h>
+#include <stdio.h>
+
 #define rt_boxheader_get_next(h) ((struct rt_box *)((h) & ~(uintptr_t)1))
 #define rt_boxheader_set_next(h, next) do { (h) = (uintptr_t)(next) | ((h) & (uintptr_t)1); } while(0)
 #define rt_boxheader_is_marked(h) ((h) & 1)
 #define rt_boxheader_set_mark(h) do { (h) |= 1; } while(0)
 #define rt_boxheader_clear_mark(h) do { (h) &= ~(uintptr_t)1; } while(0)
 
-struct rt_box *rt_gc_alloc(struct rt_thread_ctx *ctx, rt_size_t size) {
+void *rt_gc_alloc(struct rt_thread_ctx *ctx, rt_size_t size) {
     struct rt_box *box = (struct rt_box *)calloc(1, sizeof(struct rt_box) + size);
     rt_boxheader_set_next(box->header, ctx->boxes);
     ctx->boxes = box;
-    return box;
+    return box + 1;
 }
 
 static void rt_gc_mark_single(struct rt_thread_ctx *ctx, char *ptr, struct rt_type *type);
@@ -53,7 +56,7 @@ static void rt_gc_mark_array(struct rt_thread_ctx *ctx, char *ptr, struct rt_typ
     if (type->size) {
         length = type->size / elem_size;
     } else {
-        /* an unsized array is a boxed array, which starts with a 32-bit length */
+        /* an unsized array starts with a length */
         length = *(rt_size_t *)ptr;
         ptr += sizeof(rt_size_t);
     }
