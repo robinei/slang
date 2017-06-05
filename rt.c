@@ -147,8 +147,6 @@ struct rt_thread_ctx {
 
 
 
-static struct rt_any rt_any_nil;
-
 
 struct rt_type_index {
     /* for lookup and "uniquification" */
@@ -368,6 +366,7 @@ RT_DEF_SCALAR_MAKER(f64, RT_KIND_REAL);
 RT_DEF_SCALAR_MAKER(b8, RT_KIND_BOOL);
 RT_DEF_SCALAR_MAKER(b32, RT_KIND_BOOL);
 
+struct rt_any rt_nil;
 
 
 
@@ -475,6 +474,9 @@ static void rt_gc_mark_single(struct rt_thread_ctx *ctx, char *ptr, struct rt_ty
         }
         break;
     case RT_KIND_PTR:
+        if (!*(char **)ptr) {
+            break;
+        }
         if (type->box_type) {
             if (type->flags & RT_TYPE_FLAG_WEAK_PTR) {
                 rt_gc_add_weakptr(ctx, (void **)ptr, type);
@@ -662,9 +664,13 @@ void rt_print(char *ptr, struct rt_type *type) {
         }
         if (type == rt_types.cons) {
             struct rt_cons *cons = (struct rt_cons *)ptr;
+            if (!cons) {
+                printf("nil");
+                break;
+            }
             b32 first = TRUE;
             printf("(");
-            for (;;) {
+            while (cons) {
                 if (!first) {
                     printf(" ");
                 }
@@ -787,6 +793,20 @@ void rt_init_types() {
 }
 
 
+struct rt_any rt_weak_any(struct rt_any any) {
+    if (!any.type) {
+        return any;
+    }
+    if (any.type->kind != RT_KIND_PTR) {
+        return any;
+    }
+    struct rt_any new_any;
+    new_any.type = rt_gettype_weakptr(any.type);
+    new_any.u.ptr = any.u.ptr;
+    return new_any;
+}
+
+
 
 
 int main(int argc, char *argv[]) {
@@ -801,12 +821,13 @@ int main(int argc, char *argv[]) {
     struct rt_any arr = rt_new_array(&ctx, 10, rt_gettype_boxed_array(rt_types.any, 0));
     rt_box_array_ref(arr.u.ptr, struct rt_any, 0) = z;
 
-    struct rt_any cons = rt_new_cons(&ctx, y, rt_new_cons(&ctx, rt_new_cons(&ctx, rt_new_u8(1), rt_new_u8(2)), rt_new_cons(&ctx, z, rt_any_nil)));
+    struct rt_any cons = rt_new_cons(&ctx, y, rt_new_cons(&ctx, rt_new_cons(&ctx, rt_new_u8(1), rt_new_u8(2)), rt_new_cons(&ctx, z, rt_nil)));
     rt_box_array_ref(arr.u.ptr, struct rt_any, 1) = cons;
+    rt_box_array_ref(arr.u.ptr, struct rt_any, 2) = rt_weak_any(cons);
 
-    rt_box_array_ref(arr.u.ptr, struct rt_any, 2) = rt_new_b32(FALSE);
-    rt_box_array_ref(arr.u.ptr, struct rt_any, 3) = rt_new_u8(99);
-    rt_box_array_ref(arr.u.ptr, struct rt_any, 4) = rt_new_f64(4.67);
+    rt_box_array_ref(arr.u.ptr, struct rt_any, 3) = rt_new_b32(FALSE);
+    rt_box_array_ref(arr.u.ptr, struct rt_any, 4) = rt_new_u8(99);
+    rt_box_array_ref(arr.u.ptr, struct rt_any, 5) = rt_new_f64(4.67);
 
     rt_print_any(arr); printf("\n");
 
@@ -816,17 +837,20 @@ int main(int argc, char *argv[]) {
     rt_gc_run(&ctx);
 
     printf("-\n");
+    rt_print_any(arr); printf("\n");
 
-    rt_box_array_ref(arr.u.ptr, struct rt_any, 0) = rt_any_nil;
-    rt_cdr(cons.u.ptr) = rt_any_nil;
+    rt_box_array_ref(arr.u.ptr, struct rt_any, 0) = rt_nil;
+    rt_cdr(cons.u.ptr) = rt_nil;
     rt_gc_run(&ctx);
 
     printf("-\n");
+    rt_print_any(arr); printf("\n");
 
-    rt_box_array_ref(arr.u.ptr, struct rt_any, 1) = rt_any_nil;
+    rt_box_array_ref(arr.u.ptr, struct rt_any, 1) = rt_nil;
     rt_gc_run(&ctx);
 
     printf("-\n");
+    rt_print_any(arr); printf("\n");
 
     ctx.roots = roots[0];
     rt_gc_run(&ctx);
