@@ -1,9 +1,13 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+
+#include "hashtable.h"
+#include "murmur3.h"
 
 
 typedef uint8_t u8;
@@ -192,8 +196,9 @@ static b32 rt_gc_type_needs_scan(struct rt_type *type) {
     case RT_KIND_UNSIGNED:
     case RT_KIND_REAL:
         return FALSE;
+    default:
+        return TRUE;
     }
-    return TRUE;
 }
 
 static void rt_gc_mark_array(char *ptr, struct rt_type *type) {
@@ -243,6 +248,8 @@ static void rt_gc_mark_array(char *ptr, struct rt_type *type) {
             rt_gc_mark_array(ptr + i*elem_size, elem_type);
         }
         break;
+    default:
+        break;
     }
 }
 
@@ -267,6 +274,8 @@ static void rt_gc_mark_single(char *ptr, struct rt_type *type) {
         break;
     case RT_KIND_ARRAY:
         rt_gc_mark_array(ptr, type);
+        break;
+    default:
         break;
     }
 }
@@ -505,7 +514,7 @@ void rt_print(char *ptr, struct rt_type *type) {
         case 1: printf("%d", *(i8 *)ptr); break;
         case 2: printf("%d", *(i16 *)ptr); break;
         case 4: printf("%d", *(i32 *)ptr); break;
-        case 8: printf("%lld", *(i64 *)ptr); break;
+        case 8: printf(PRId64, *(i64 *)ptr); break;
         }
         break;
     case RT_KIND_UNSIGNED:
@@ -513,7 +522,7 @@ void rt_print(char *ptr, struct rt_type *type) {
         case 1: printf("%u", *(u8 *)ptr); break;
         case 2: printf("%u", *(u16 *)ptr); break;
         case 4: printf("%u", *(u32 *)ptr); break;
-        case 8: printf("%llu", *(u64 *)ptr); break;
+        case 8: printf(PRIu64, *(u64 *)ptr); break;
         }
         break;
     case RT_KIND_REAL:
