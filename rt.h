@@ -27,7 +27,7 @@ enum rt_kind {
     RT_KIND_REAL,
 
     /* function */
-    RT_KIND_FUN,
+    RT_KIND_FUNC,
 };
 
 enum {
@@ -54,18 +54,21 @@ struct rt_type {
             /* how many bytes from end of box header to pointee */
             rt_size_t box_offset;
         } ptr;
+        
         struct {
             u32 field_count;
             struct rt_struct_field *fields;
         } _struct;
+
         struct {
             struct rt_type *elem_type;
         } array;
+
         struct {
             u32 param_count;
             struct rt_fun_param *params;
             struct rt_type *return_type;
-        } fun;
+        } func;
     } u;
 };
 
@@ -198,6 +201,7 @@ struct rt_type *rt_gettype_array(struct rt_type *elem_type, rt_size_t length);
 struct rt_type *rt_gettype_boxed_array(struct rt_type *elem_type, rt_size_t length);
 struct rt_type *rt_gettype_struct(rt_size_t size, u32 field_count, struct rt_struct_field *fields);
 
+b32 rt_any_to_b32(struct rt_any a);
 struct rt_any rt_weak_any(struct rt_any any);
 b32 rt_any_equals(struct rt_any a, struct rt_any b);
 
@@ -263,5 +267,94 @@ struct rt_symbol {
 
 #define rt_car(ptr) (((struct rt_cons *)(ptr))->car)
 #define rt_cdr(ptr) (((struct rt_cons *)(ptr))->cdr)
+
+
+
+
+
+enum rt_astnode_type {
+    RT_ASTNODE_FUNC,
+    RT_ASTNODE_SCOPE,
+    RT_ASTNODE_BLOCK,
+    RT_ASTNODE_LITERAL,
+    RT_ASTNODE_GET_LOCAL,
+    RT_ASTNODE_SET_LOCAL,
+    RT_ASTNODE_GET_CONST_GLOBAL,
+    RT_ASTNODE_DEF_CONST_GLOBAL,
+    RT_ASTNODE_COND,
+    RT_ASTNODE_LOOP,
+    RT_ASTNODE_CALL,
+};
+
+struct rt_scope_slot {
+    struct rt_type *type;
+    const char *name;
+};
+
+struct rt_astnode {
+    enum rt_astnode_type node_type;
+    struct rt_type *result_type;
+    struct rt_astnode *parent_scope;
+    struct rt_sourceloc sourceloc;
+
+    union {
+        struct {
+            const char *name;
+            struct rt_astnode *scope_expr;
+        } func;
+
+        struct {
+            u32 slot_count;
+            struct rt_scope_slot *slots;
+            struct rt_astnode *child_scope;
+            struct rt_astnode *expr;
+        } scope;
+
+        struct {
+            u32 expr_count;
+            struct rt_astnode **exprs;
+        } block;
+
+        struct {
+            struct rt_any value;
+        } literal;
+
+        struct {
+            const char *name;
+        } get_local;
+
+        struct {
+            const char *name;
+            struct rt_astnode *expr;
+        } set_local;
+
+        struct {
+            const char *name;
+        } get_const_global;
+
+        struct {
+            const char *name;
+            struct rt_astnode *expr;
+        } set_const_global;
+
+        struct {
+            struct rt_astnode *pred_expr;
+            struct rt_astnode *then_expr;
+            struct rt_astnode *else_expr;
+        } cond;
+
+        struct {
+            struct rt_astnode *pred_expr;
+            struct rt_astnode *body_expr;
+        } loop;
+
+        struct {
+            struct rt_astnode *func_expr;
+            struct rt_astnode **arg_exprs;
+            u32 arg_count;
+        } call;
+    } u;
+};
+
 
 #endif

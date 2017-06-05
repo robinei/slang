@@ -13,7 +13,7 @@ struct rt_any rt_weak_any(struct rt_any any) {
     return new_any;
 }
 
-static b32 rt_any_to_b32(struct rt_any a) {
+b32 rt_any_to_b32(struct rt_any a) {
     assert(a.type->kind == RT_KIND_BOOL);
     if (a.type->size == 1) {
         return a.u.b8;
@@ -107,7 +107,8 @@ b32 rt_any_equals(struct rt_any a, struct rt_any b) {
         return rt_any_to_u64(a) == rt_any_to_u64(b);
     case RT_KIND_REAL:
         return rt_any_to_f64(a) == rt_any_to_f64(b);
-    case RT_KIND_FUN:
+    case RT_KIND_FUNC:
+        // TODO: func equality?
     default:
         return FALSE;
     }
