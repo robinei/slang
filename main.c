@@ -29,8 +29,9 @@ int main(int argc, char *argv[]) {
     rt_box_array_ref(arr.u.ptr, struct rt_any, 5) = rt_new_f64(4.67);
     rt_box_array_ref(arr.u.ptr, struct rt_any, 6) = rt_new_cons(&ctx, rt_nil, rt_nil);
     rt_box_array_ref(arr.u.ptr, struct rt_any, 6) = rt_get_symbol("sym");
+    rt_box_array_ref(arr.u.ptr, struct rt_any, 7) = rt_read(&ctx, "(foo bar baz)");
 
-    rt_print_any(arr); printf("\n");
+    rt_print(arr); printf("\n");
 
     struct rt_type *types[4] = { rt_types.any, rt_types.any, rt_types.any, NULL };
     void *roots[5] = { ctx.roots, types, &x, &y, &arr };
@@ -38,22 +39,27 @@ int main(int argc, char *argv[]) {
     rt_gc_run(&ctx);
 
     printf("-\n");
-    rt_print_any(arr); printf("\n");
+    rt_print(arr); printf("\n");
 
     rt_box_array_ref(arr.u.ptr, struct rt_any, 0) = rt_nil;
     rt_cdr(cons.u.ptr) = rt_nil;
     rt_gc_run(&ctx);
 
     printf("-\n");
-    rt_print_any(arr); printf("\n");
+    rt_print(arr); printf("\n");
 
     rt_box_array_ref(arr.u.ptr, struct rt_any, 1) = rt_nil;
     rt_gc_run(&ctx);
 
     printf("-\n");
-    rt_print_any(arr); printf("\n");
+    rt_print(arr); printf("\n");
 
     ctx.roots = roots[0];
+    rt_gc_run(&ctx);
+
+    printf("-\n");
+
+    rt_sourcemap_clear(&ctx.sourcemap);
     rt_gc_run(&ctx);
 }
 

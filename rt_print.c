@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-void rt_print(char *ptr, struct rt_type *type) {
+static void rt_print_ptr(char *ptr, struct rt_type *type) {
     if (!type) {
         printf("nil");
         return;
@@ -11,11 +11,11 @@ void rt_print(char *ptr, struct rt_type *type) {
     switch (type->kind) {
     case RT_KIND_ANY: {
         struct rt_any *any = (struct rt_any *)ptr;
-        rt_print((char *)&any->u.data, any->type);
+        rt_print_ptr((char *)&any->u.data, any->type);
         break;
     }
     case RT_KIND_PTR:
-        rt_print(*(char **)ptr, type->u.ptr.target_type);
+        rt_print_ptr(*(char **)ptr, type->u.ptr.target_type);
         break;
     case RT_KIND_STRUCT: {
         if (type == rt_types.string) {
@@ -41,13 +41,13 @@ void rt_print(char *ptr, struct rt_type *type) {
                     printf(" ");
                 }
                 first = FALSE;
-                rt_print_any(cons->car);
+                rt_print(cons->car);
                 if (!cons->cdr.type) {
                     break;
                 }
                 if (cons->cdr.type != rt_types.boxed_cons) {
                     printf(" . ");
-                    rt_print_any(cons->cdr);
+                    rt_print(cons->cdr);
                     break;
                 }
                 cons = (struct rt_cons *)cons->cdr.u.ptr;
@@ -60,7 +60,7 @@ void rt_print(char *ptr, struct rt_type *type) {
         for (u32 i = 0; i < field_count; ++i) {
             struct rt_struct_field *f = type->u._struct.fields + i;
             printf("%s: ", f->name);
-            rt_print(ptr + f->offset, f->type);
+            rt_print_ptr(ptr + f->offset, f->type);
             if (i != field_count - 1) {
                 printf(", ");
             }
@@ -81,7 +81,7 @@ void rt_print(char *ptr, struct rt_type *type) {
             ptr += sizeof(rt_size_t);
         }
         for (rt_size_t i = 0; i < length; ++i) {
-            rt_print(ptr + i*elem_size, elem_type);
+            rt_print_ptr(ptr + i*elem_size, elem_type);
             if (i != length - 1) {
                 printf(" ");
             }
@@ -120,6 +120,6 @@ void rt_print(char *ptr, struct rt_type *type) {
     }
 }
 
-void rt_print_any(struct rt_any any) {
-    rt_print((char *)&any.u.data, any.type);
+void rt_print(struct rt_any any) {
+    rt_print_ptr((char *)&any.u.data, any.type);
 }

@@ -162,6 +162,14 @@ void rt_gc_run(struct rt_thread_ctx *ctx) {
         roots = roots[0];
     }
 
+    /* TODO: make hash table play nice with GC so we don't have to mark the keys manually */
+    for (u32 i = 0; i < ctx->sourcemap.size; ++i) {
+        struct rt_sourcemap_entry *e = ctx->sourcemap.entries + i;
+        if (e->hash) {
+            rt_gc_mark_single(ctx, (char *)&e->key, rt_types.boxed_cons);
+        }
+    }
+
     /* null out the weak pointers */
     for (u32 i = 0; i < ctx->num_weakptrs; ++i) {
         struct rt_weakptr_entry e = ctx->weakptrs[i];

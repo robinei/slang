@@ -1,9 +1,11 @@
 #ifndef RUNTIME_H
 #define RUNTIME_H
 
-#include "types.h"
 #include <stddef.h>
 #include <assert.h>
+
+#include "types.h"
+#include "hashtable.h"
 
 typedef uintptr_t rt_size_t;
 
@@ -111,6 +113,14 @@ struct rt_weakptr_entry {
     struct rt_type *type;
 };
 
+struct rt_sourceloc {
+    u32 line;
+    u32 col;
+};
+
+/* map from cons address to source location */
+DECL_HASH_TABLE(rt_sourcemap, struct rt_cons *, struct rt_sourceloc)
+
 struct rt_thread_ctx {
     /* array of pointers to active roots. used for GC mark phase.
        the first element is actually a pointer to another root array, so this
@@ -128,6 +138,8 @@ struct rt_thread_ctx {
     u32 num_weakptrs;
     u32 max_weakptrs;
     struct rt_weakptr_entry *weakptrs;
+
+    struct rt_sourcemap sourcemap;
 };
 
 struct rt_type_index {
@@ -194,8 +206,9 @@ b32 rt_any_equals(struct rt_any a, struct rt_any b);
 void *rt_gc_alloc(struct rt_thread_ctx *ctx, rt_size_t size);
 void rt_gc_run(struct rt_thread_ctx *ctx);
 
-void rt_print(char *ptr, struct rt_type *type);
-void rt_print_any(struct rt_any any);
+struct rt_any rt_read(struct rt_thread_ctx *ctx, const char *text);
+
+void rt_print(struct rt_any any);
 
 
 #define RT_DEF_SCALAR(name, kind) \

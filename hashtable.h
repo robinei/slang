@@ -1,3 +1,5 @@
+#ifndef HASHTABLE_H
+#define HASHTABLE_H
 
 static uint32_t hashutil_next_pow2(uint32_t v) {
     v--;
@@ -163,4 +165,4 @@ static uint32_t hashutil_dist_to_start(uint32_t table_size, uint32_t hash, uint3
         table->entries = 0;                                             \
     }
 
-
+#endif
