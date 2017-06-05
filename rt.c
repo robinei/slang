@@ -74,6 +74,9 @@ struct rt_type {
     /* for RT_KIND_PTR */
     struct rt_type *box_type; /* outermost type if this points to inside a GC-managed box */
     rt_size_t box_offset; /* how many bytes from end of box header to pointee */
+
+    /* for chaining types in type tables */
+    struct rt_type *next;
 };
 
 struct rt_struct_field {
@@ -144,43 +147,227 @@ struct rt_thread_ctx {
 
 
 
+static struct rt_any rt_any_nil;
 
-#define RT_DEF_TYPE(name, kind, size)                                   \
-    struct rt_type rt_type_##name = { kind, 0, size, };                    \
-    struct rt_type rt_type_ptr_##name = { RT_KIND_PTR, 0, sizeof(void *), &rt_type_##name }; \
-    struct rt_type rt_type_boxptr_##name = { RT_KIND_PTR, 0, sizeof(void *), &rt_type_##name, 0, NULL, &rt_type_##name }; \
-    struct rt_type rt_type_array_##name = { RT_KIND_ARRAY, 0, 0, &rt_type_##name }; \
-    struct rt_type rt_type_boxptr_array_##name = { RT_KIND_PTR, 0, sizeof(void *), &rt_type_array_##name, 0, NULL, &rt_type_array_##name };
 
-#define RT_DEF_SCALAR(name, kind) \
-    RT_DEF_TYPE(name, kind, sizeof(name)) \
+struct rt_type_index {
+    /* for lookup and "uniquification" */
+    struct rt_type *types_simple;
+    struct rt_type *types_ptr;
+    struct rt_type *types_boxptr;
+    struct rt_type *types_weakptr;
+    struct rt_type *types_array;
+    struct rt_type *types_struct;
+
+    /* type shorthands */
+
+    struct rt_type *any;
+    
+    struct rt_type *u8;
+    struct rt_type *u16;
+    struct rt_type *u32;
+    struct rt_type *u64;
+
+    struct rt_type *i8;
+    struct rt_type *i16;
+    struct rt_type *i32;
+    struct rt_type *i64;
+
+    struct rt_type *f32;
+    struct rt_type *f64;
+
+    struct rt_type *b8;
+    struct rt_type *b32;
+
+    struct rt_type *cons;
+    struct rt_type *boxed_cons;
+    
+    struct rt_type *string;
+    struct rt_type *boxed_string;
+    
+    struct rt_type *symbol;
+    struct rt_type *ptr_symbol;
+};
+
+/* global type index. protect with locks if threading becomes a thing */
+static struct rt_type_index rt_types;
+
+
+struct rt_type *rt_gettype_simple(enum rt_kind kind, rt_size_t size) {
+    struct rt_type *existing = rt_types.types_simple;
+    while (existing) {
+        if (existing->kind == kind && existing->size == size) {
+            return existing;
+        }
+        existing = existing->next;
+    }
+    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
+    new_type->kind = kind;
+    new_type->size = size;
+    new_type->next = rt_types.types_simple;
+    rt_types.types_simple = new_type;
+    return new_type;
+}
+
+struct rt_type *rt_gettype_ptr(struct rt_type *target_type) {
+    struct rt_type *existing = rt_types.types_ptr;
+    while (existing) {
+        if (existing->target_type == target_type) {
+            return existing;
+        }
+        existing = existing->next;
+    }
+    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
+    new_type->kind = RT_KIND_PTR;
+    new_type->size = sizeof(void *);
+    new_type->target_type = target_type;
+    new_type->next = rt_types.types_ptr;
+    rt_types.types_ptr = new_type;
+    return new_type;
+}
+
+struct rt_type *rt_gettype_boxptr(struct rt_type *target_type, struct rt_type *box_type, rt_size_t box_offset) {
+    struct rt_type *existing = rt_types.types_boxptr;
+    while (existing) {
+        if (existing->target_type == target_type && existing->box_type == box_type && existing->box_offset == box_offset) {
+            return existing;
+        }
+        existing = existing->next;
+    }
+    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
+    new_type->kind = RT_KIND_PTR;
+    new_type->size = sizeof(void *);
+    new_type->target_type = target_type;
+    new_type->box_type = box_type;
+    new_type->box_offset = box_offset;
+    new_type->next = rt_types.types_boxptr;
+    rt_types.types_boxptr = new_type;
+    return new_type;
+}
+
+struct rt_type *rt_gettype_boxed(struct rt_type *target_type) {
+    return rt_gettype_boxptr(target_type, target_type, 0);
+}
+
+struct rt_type *rt_gettype_weakptr(struct rt_type *ptr_type) {
+    assert(ptr_type->kind == RT_KIND_PTR);
+    assert(ptr_type->box_type);
+    struct rt_type *existing = rt_types.types_weakptr;
+    while (existing) {
+        if (existing->target_type == ptr_type->target_type) {
+            return existing;
+        }
+        existing = existing->next;
+    }
+    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
+    new_type->kind = RT_KIND_PTR;
+    new_type->flags = RT_TYPE_FLAG_WEAK_PTR;
+    new_type->size = sizeof(void *);
+    new_type->target_type = ptr_type->target_type;
+    new_type->box_type = ptr_type->box_type;
+    new_type->box_offset = ptr_type->box_offset;
+    new_type->next = rt_types.types_weakptr;
+    rt_types.types_weakptr = new_type;
+    return new_type;
+}
+
+struct rt_type *rt_gettype_weakptr_boxed(struct rt_type *target_type) {
+    return rt_gettype_weakptr(rt_gettype_boxed(target_type));
+}
+
+struct rt_type *rt_gettype_array(struct rt_type *elem_type, rt_size_t length) {
+    assert(elem_type->size);
+    rt_size_t size = length ? elem_type->size*length : 0;
+    struct rt_type *existing = rt_types.types_array;
+    while (existing) {
+        if (existing->size == size && existing->target_type == elem_type) {
+            return existing;
+        }
+        existing = existing->next;
+    }
+    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
+    new_type->kind = RT_KIND_ARRAY;
+    new_type->size = size;
+    new_type->target_type = elem_type;
+    new_type->next = rt_types.types_array;
+    rt_types.types_array = new_type;
+    return new_type;
+}
+
+struct rt_type *rt_gettype_boxed_array(struct rt_type *elem_type, rt_size_t length) {
+    return rt_gettype_boxed(rt_gettype_array(elem_type, length));
+}
+
+struct rt_type *rt_gettype_struct(rt_size_t size, u32 field_count, struct rt_struct_field *fields) {
+    struct rt_type *existing = rt_types.types_struct;
+    while (existing) {
+        if (existing->size == size && existing->field_count == field_count) {
+            b32 fields_same = TRUE;
+            for (u32 i = 0; i < field_count; ++i) {
+                struct rt_struct_field *f1 = existing->fields + i;
+                struct rt_struct_field *f2 = fields + i;
+                if (f1->type != f2->type || strcmp(f1->name, f2->name) || f1->offset != f2->offset) {
+                    fields_same = FALSE;
+                    break;
+                }
+            }
+            if (fields_same) {
+                return existing;
+            }
+        }
+        existing = existing->next;
+    }
+#ifndef NDEBUG
+    for (u32 i = 0; i < field_count - 1; ++i) {
+        struct rt_struct_field *f = fields + i;
+        assert(f->type->size);
+    }
+    if (field_count) {
+        if (size) {
+            assert(fields[field_count - 1].type->size != 0);
+        } else {
+            assert(fields[field_count - 1].type->size == 0);
+        }
+    } else {
+        assert(size == 0);
+    }
+#endif
+    struct rt_struct_field *new_fields = malloc(sizeof(struct rt_struct_field) * field_count);
+    memcpy(new_fields, fields, sizeof(struct rt_struct_field) * field_count);
+    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
+    new_type->kind = RT_KIND_STRUCT;
+    new_type->size = size;
+    new_type->field_count = field_count;
+    new_type->fields = new_fields;
+    new_type->next = rt_types.types_struct;
+    rt_types.types_struct = new_type;
+    return new_type;
+}
+
+#define RT_DEF_SCALAR_MAKER(name, kind) \
     struct rt_any rt_new_##name(name value) { \
         struct rt_any any; \
-        any.type = &rt_type_##name; \
+        any.type = rt_types.name; \
         any.u.name = value; \
         return any; \
     }
 
-RT_DEF_TYPE(any, RT_KIND_ANY, sizeof(struct rt_any));
+RT_DEF_SCALAR_MAKER(i8, RT_KIND_SIGNED);
+RT_DEF_SCALAR_MAKER(i16, RT_KIND_SIGNED);
+RT_DEF_SCALAR_MAKER(i32, RT_KIND_SIGNED);
+RT_DEF_SCALAR_MAKER(i64, RT_KIND_SIGNED);
 
-RT_DEF_SCALAR(i8, RT_KIND_SIGNED);
-RT_DEF_SCALAR(i16, RT_KIND_SIGNED);
-RT_DEF_SCALAR(i32, RT_KIND_SIGNED);
-RT_DEF_SCALAR(i64, RT_KIND_SIGNED);
+RT_DEF_SCALAR_MAKER(u8, RT_KIND_UNSIGNED);
+RT_DEF_SCALAR_MAKER(u16, RT_KIND_UNSIGNED);
+RT_DEF_SCALAR_MAKER(u32, RT_KIND_UNSIGNED);
+RT_DEF_SCALAR_MAKER(u64, RT_KIND_UNSIGNED);
 
-RT_DEF_SCALAR(u8, RT_KIND_UNSIGNED);
-RT_DEF_SCALAR(u16, RT_KIND_UNSIGNED);
-RT_DEF_SCALAR(u32, RT_KIND_UNSIGNED);
-RT_DEF_SCALAR(u64, RT_KIND_UNSIGNED);
+RT_DEF_SCALAR_MAKER(f32, RT_KIND_REAL);
+RT_DEF_SCALAR_MAKER(f64, RT_KIND_REAL);
 
-RT_DEF_SCALAR(f32, RT_KIND_REAL);
-RT_DEF_SCALAR(f64, RT_KIND_REAL);
+RT_DEF_SCALAR_MAKER(b8, RT_KIND_BOOL);
+RT_DEF_SCALAR_MAKER(b32, RT_KIND_BOOL);
 
-RT_DEF_SCALAR(b8, RT_KIND_BOOL);
-RT_DEF_SCALAR(b32, RT_KIND_BOOL);
-
-
-static struct rt_any rt_any_nil;
 
 
 
@@ -379,12 +566,15 @@ struct rt_cons {
     struct rt_any car;
     struct rt_any cdr;
 };
-struct rt_struct_field rt_struct_fields_cons[2] = {
-    { &rt_type_any, "car", offsetof(struct rt_cons, car) },
-    { &rt_type_any, "cdr", offsetof(struct rt_cons, cdr) },
+
+struct rt_array_u8 {
+    rt_size_t length;
+    u8 data[1];
 };
-struct rt_type rt_type_cons = { RT_KIND_STRUCT, 0, sizeof(struct rt_cons), NULL, 2, rt_struct_fields_cons };
-struct rt_type rt_type_boxptr_cons = { RT_KIND_PTR, 0, sizeof(void *), &rt_type_cons, 0, NULL, &rt_type_cons };
+
+struct rt_string { struct rt_array_u8 chars; };
+
+struct rt_symbol { struct rt_string string; };
 
 struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct rt_any cdr) {
     struct rt_box *box = rt_alloc_box(ctx, sizeof(struct rt_cons));
@@ -393,7 +583,7 @@ struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct r
     cons->cdr = cdr;
 
     struct rt_any any;
-    any.type = &rt_type_boxptr_cons;
+    any.type = rt_types.boxed_cons;
     any.u.ptr = box + 1;
     return any;
 }
@@ -420,18 +610,6 @@ struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct r
     return any;
 }
 
-
-
-struct rt_array_u8 {
-    rt_size_t length;
-    u8 data[1];
-};
-
-struct rt_string { struct rt_array_u8 chars; };
-struct rt_struct_field rt_string_fields[1] = {{ &rt_type_array_u8, "chars", 0 }};
-struct rt_type rt_type_string = { RT_KIND_STRUCT, 0, 0, NULL, 1, rt_string_fields };
-struct rt_type rt_type_boxptr_string = { RT_KIND_PTR, 0, 0, &rt_type_string, 0, NULL, &rt_type_string };
-
 struct rt_any rt_new_string_from_cstring(struct rt_thread_ctx *ctx, const char *data) {
     rt_size_t length = strlen(data);
     struct rt_box *box = rt_alloc_box(ctx, sizeof(rt_size_t) + length + 1);
@@ -440,17 +618,10 @@ struct rt_any rt_new_string_from_cstring(struct rt_thread_ctx *ctx, const char *
     memcpy(string->chars.data, data, length + 1);
 
     struct rt_any any;
-    any.type = &rt_type_boxptr_string;
+    any.type = rt_types.boxed_string;
     any.u.ptr = box + 1;
     return any;
 }
-
-
-struct rt_symbol { struct rt_string string; };
-struct rt_struct_field rt_symbol_fields[1] = {{ &rt_type_string, "string", 0 }};
-struct rt_type rt_type_symbol = { RT_KIND_STRUCT, 0, 0, NULL, 1, rt_symbol_fields };
-struct rt_type rt_type_boxptr_symbol = { RT_KIND_PTR, 0, 0, &rt_type_symbol, 0, NULL, &rt_type_symbol };
-
 
 
 
@@ -479,17 +650,17 @@ void rt_print(char *ptr, struct rt_type *type) {
         rt_print(*(char **)ptr, type->target_type);
         break;
     case RT_KIND_STRUCT: {
-        if (type == &rt_type_string) {
+        if (type == rt_types.string) {
             struct rt_string *string = (struct rt_string *)ptr;
             printf("\"%s\"", string->chars.data);
             break;
         }
-        if (type == &rt_type_symbol) {
+        if (type == rt_types.symbol) {
             struct rt_symbol *sym = (struct rt_symbol *)ptr;
             printf("%s", sym->string.chars.data);
             break;
         }
-        if (type == &rt_type_cons) {
+        if (type == rt_types.cons) {
             struct rt_cons *cons = (struct rt_cons *)ptr;
             b32 first = TRUE;
             printf("(");
@@ -502,7 +673,7 @@ void rt_print(char *ptr, struct rt_type *type) {
                 if (!cons->cdr.type) {
                     break;
                 }
-                if (cons->cdr.type != &rt_type_boxptr_cons) {
+                if (cons->cdr.type != rt_types.boxed_cons) {
                     printf(" . ");
                     rt_print_any(cons->cdr);
                     break;
@@ -580,17 +751,54 @@ void rt_print_any(struct rt_any any) {
 }
 
 
+void rt_init_types() {
+    rt_types.any = rt_gettype_simple(RT_KIND_ANY, sizeof(struct rt_any));
+
+    rt_types.u8 = rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u8));
+    rt_types.u16 = rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u16));
+    rt_types.u32 = rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u32));
+    rt_types.u64 = rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u64));
+
+    rt_types.i8 = rt_gettype_simple(RT_KIND_SIGNED, sizeof(i8));
+    rt_types.i16 = rt_gettype_simple(RT_KIND_SIGNED, sizeof(i16));
+    rt_types.i32 = rt_gettype_simple(RT_KIND_SIGNED, sizeof(i32));
+    rt_types.i64 = rt_gettype_simple(RT_KIND_SIGNED, sizeof(i64));
+
+    rt_types.f32 = rt_gettype_simple(RT_KIND_REAL, sizeof(f32));
+    rt_types.f64 = rt_gettype_simple(RT_KIND_REAL, sizeof(u64));
+
+    rt_types.b8 = rt_gettype_simple(RT_KIND_BOOL, sizeof(b8));
+    rt_types.b32 = rt_gettype_simple(RT_KIND_BOOL, sizeof(b32));
+
+    struct rt_struct_field cons_fields[2] = {
+        { rt_types.any, "car", offsetof(struct rt_cons, car) },
+        { rt_types.any, "cdr", offsetof(struct rt_cons, cdr) },
+    };
+    rt_types.cons = rt_gettype_struct(sizeof(struct rt_cons), 2, cons_fields);
+    rt_types.boxed_cons = rt_gettype_boxed(rt_types.cons);
+
+    struct rt_struct_field string_fields[1] = {{ rt_gettype_array(rt_types.u8, 0), "chars", 0 }};
+    rt_types.string = rt_gettype_struct(0, 1, string_fields);
+    rt_types.boxed_string = rt_gettype_boxed(rt_types.string);
+
+    struct rt_struct_field symbol_fields[1] = {{ rt_types.string, "string", 0 }};
+    rt_types.symbol = rt_gettype_struct(0, 1, symbol_fields);
+    rt_types.ptr_symbol = rt_gettype_ptr(rt_types.symbol);
+}
+
 
 
 
 int main(int argc, char *argv[]) {
     struct rt_thread_ctx ctx = {0,};
 
+    rt_init_types();
+
     struct rt_any x = rt_new_string_from_cstring(&ctx, "foo");
     struct rt_any y = rt_new_string_from_cstring(&ctx, "bar");
     struct rt_any z = rt_new_string_from_cstring(&ctx, "baz");
 
-    struct rt_any arr = rt_new_array(&ctx, 10, &rt_type_boxptr_array_any);
+    struct rt_any arr = rt_new_array(&ctx, 10, rt_gettype_boxed_array(rt_types.any, 0));
     rt_box_array_ref(arr.u.ptr, struct rt_any, 0) = z;
 
     struct rt_any cons = rt_new_cons(&ctx, y, rt_new_cons(&ctx, rt_new_cons(&ctx, rt_new_u8(1), rt_new_u8(2)), rt_new_cons(&ctx, z, rt_any_nil)));
@@ -602,7 +810,7 @@ int main(int argc, char *argv[]) {
 
     rt_print_any(arr); printf("\n");
 
-    struct rt_type *types[4] = { &rt_type_any, &rt_type_any, &rt_type_any, NULL };
+    struct rt_type *types[4] = { rt_types.any, rt_types.any, rt_types.any, NULL };
     void *roots[5] = { ctx.roots, types, &x, &y, &arr };
     ctx.roots = roots;
     rt_gc_run(&ctx);
