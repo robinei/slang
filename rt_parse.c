@@ -23,16 +23,18 @@ static void parse_error(struct rt_thread_ctx *ctx, struct rt_any form, const cha
     exit(1);
 }
 
-struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any parent_form, struct rt_any form) {
+struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any valid_cons, struct rt_any form) {
+    assert(rt_any_is_cons(valid_cons));
+    
     if (!rt_any_is_cons(form)) {
         if (!rt_any_is_symbol(form)) {
-            parse_error(ctx, parent_form, "invalid type");
+            parse_error(ctx, valid_cons, "invalid type");
             return NULL;
         }
 
         struct rt_type *type = rt_lookup_simple_type(form);
         if (type == NULL) {
-            parse_error(ctx, parent_form, "invalid type");
+            parse_error(ctx, valid_cons, "invalid type");
             return NULL;
         }
         return type;

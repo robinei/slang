@@ -16,13 +16,13 @@ IMPL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *, hashutil_ptr_hash
 static struct typemap typemap;
 
 
-#define DEF_SIMPLE_TYPE_FULL(type, name, propername, kind) \
-    rt_symbols.name = rt_get_symbol(#propername); \
-    rt_types.name = rt_gettype_simple(kind, sizeof(type)); \
-    typemap_put(&typemap, rt_symbols.name.u.ptr, rt_types.name);
+#define DEF_SIMPLE_TYPE_FULL(Type, Name, ProperName, Kind) \
+    rt_symbols.Name = rt_get_symbol(#ProperName); \
+    rt_types.Name = rt_gettype_simple(Kind, sizeof(Type)); \
+    typemap_put(&typemap, rt_symbols.Name.u.symbol, rt_types.Name);
 
-#define DEF_SIMPLE_TYPE(type, name, kind) \
-    DEF_SIMPLE_TYPE_FULL(type, name, #name, kind)
+#define DEF_SIMPLE_TYPE(Type, Name, Kind) \
+    DEF_SIMPLE_TYPE_FULL(Type, Name, Name, Kind)
 
 void rt_init_types() {
     struct rt_struct_field string_fields[1] = {{ rt_gettype_array(rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u8)), 0), "chars", 0 }};
@@ -62,7 +62,7 @@ void rt_init_types() {
 struct rt_type *rt_lookup_simple_type(struct rt_any sym) {
     assert(rt_any_is_symbol(sym));
     struct rt_type *result;
-    if (typemap_get(&typemap, sym.u.ptr, &result)) {
+    if (typemap_get(&typemap, sym.u.symbol, &result)) {
         return result;
     }
     return NULL;

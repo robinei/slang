@@ -13,6 +13,7 @@ int main(int argc, char *argv[]) {
     assert(rt_any_equals(rt_new_u8(23), rt_new_i64(23)));
     assert(rt_any_equals(rt_get_symbol("sym"), rt_get_symbol("sym")));
     assert(!rt_any_equals(rt_get_symbol("sym"), rt_get_symbol("sym2")));
+    assert(rt_lookup_simple_type(rt_get_symbol("u32")) == rt_types.u32);
 
     struct rt_any x = rt_new_string(&ctx, "foo");
     struct rt_any y = rt_new_string(&ctx, "bar");
@@ -34,7 +35,7 @@ int main(int argc, char *argv[]) {
 
     struct rt_any parent_form = rt_read(&ctx, "((array u32 8))");
     rt_print(parent_form); printf("\n");
-    //struct rt_type *type = rt_parse_type(&ctx, parent_form, rt_car(parent_form.u.ptr));
+    struct rt_type *type = rt_parse_type(&ctx, parent_form, rt_car(parent_form.u.ptr));
 
     rt_print(arr); printf("\n");
 
