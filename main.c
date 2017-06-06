@@ -36,6 +36,7 @@ int main(int argc, char *argv[]) {
     struct rt_any parent_form = rt_read(&ctx, "((array u32 8))");
     rt_print(parent_form); printf("\n");
     struct rt_type *type = rt_parse_type(&ctx, parent_form, rt_car(parent_form.u.ptr));
+    printf("type desc: %s\n", type->desc);
 
     rt_print(arr); printf("\n");
 

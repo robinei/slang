@@ -1,7 +1,75 @@
 #include "rt.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+
+static const char *type_to_string(struct rt_type *type) {
+    char buffer[1024];
+    u32 len = 0;
+    if (!type) {
+        return "nil";
+    }
+    buffer[0] = 0;
+    switch (type->kind) {
+    case RT_KIND_ANY: return "any";
+    case RT_KIND_NIL: return "nil";
+    case RT_KIND_PTR:
+        len = snprintf(buffer, sizeof(buffer), "ptr[%s]", type->u.ptr.target_type->desc);
+        break;
+    case RT_KIND_STRUCT:
+        if (!type->u._struct.name) {
+            return "struct";
+        }
+        len = snprintf(buffer, sizeof(buffer), "struct %s", type->u._struct.name);
+        break;
+    case RT_KIND_ARRAY:
+        if (type->size) {
+            u64 length = type->size / type->u.array.elem_type->size;
+            len = snprintf(buffer, sizeof(buffer), "array[%s %"PRIu64"]", type->u.array.elem_type->desc, length);
+        } else {
+            len = snprintf(buffer, sizeof(buffer), "array[%s]", type->u.array.elem_type->desc);
+        }
+        break;
+    case RT_KIND_BOOL: return "bool";
+    case RT_KIND_SIGNED:
+        switch (type->size) {
+        case 1: return "i8";
+        case 2: return "i16";
+        case 4: return "i32";
+        case 8: return "i64";
+        }
+        break;
+    case RT_KIND_UNSIGNED:
+        switch (type->size) {
+        case 1: return "u8";
+        case 2: return "u16";
+        case 4: return "u32";
+        case 8: return "u64";
+        }
+        break;
+    case RT_KIND_REAL:
+        switch (type->size) {
+        case 4: return "f32";
+        case 8: return "f64";
+        }
+        break;
+    case RT_KIND_FUNC:
+        return "func";
+    case RT_KIND_TYPE:
+        return "type";
+    }
+    if (len) {
+        if (len >= sizeof(buffer)) {
+            len = sizeof(buffer) - 1;
+        }
+        char *str = malloc(len + 1);
+        memcpy(str, buffer, len + 1);
+        return str;
+    }
+    assert(0 && "type not handled");
+}
 
 struct rt_type *rt_gettype_simple(enum rt_kind kind, rt_size_t size) {
     struct rt_type *existing = rt_types.types_simple;
@@ -14,6 +82,7 @@ struct rt_type *rt_gettype_simple(enum rt_kind kind, rt_size_t size) {
     struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
     new_type->kind = kind;
     new_type->size = size;
+    new_type->desc = type_to_string(new_type);
     new_type->next = rt_types.types_simple;
     rt_types.types_simple = new_type;
     return new_type;
@@ -31,6 +100,7 @@ struct rt_type *rt_gettype_ptr(struct rt_type *target_type) {
     new_type->kind = RT_KIND_PTR;
     new_type->size = sizeof(void *);
     new_type->u.ptr.target_type = target_type;
+    new_type->desc = type_to_string(new_type);
     new_type->next = rt_types.types_ptr;
     rt_types.types_ptr = new_type;
     return new_type;
@@ -52,6 +122,7 @@ struct rt_type *rt_gettype_boxptr(struct rt_type *target_type, struct rt_type *b
     new_type->u.ptr.target_type = target_type;
     new_type->u.ptr.box_type = box_type;
     new_type->u.ptr.box_offset = box_offset;
+    new_type->desc = type_to_string(new_type);
     new_type->next = rt_types.types_boxptr;
     rt_types.types_boxptr = new_type;
     return new_type;
@@ -78,6 +149,7 @@ struct rt_type *rt_gettype_weak(struct rt_type *ptr_type) {
     new_type->u.ptr.target_type = ptr_type->u.ptr.target_type;
     new_type->u.ptr.box_type = ptr_type->u.ptr.box_type;
     new_type->u.ptr.box_offset = ptr_type->u.ptr.box_offset;
+    new_type->desc = type_to_string(new_type);
     new_type->next = rt_types.types_weakptr;
     rt_types.types_weakptr = new_type;
     return new_type;
@@ -101,6 +173,7 @@ struct rt_type *rt_gettype_array(struct rt_type *elem_type, rt_size_t length) {
     new_type->kind = RT_KIND_ARRAY;
     new_type->size = size;
     new_type->u.array.elem_type = elem_type;
+    new_type->desc = type_to_string(new_type);
     new_type->next = rt_types.types_array;
     rt_types.types_array = new_type;
     return new_type;
@@ -110,7 +183,7 @@ struct rt_type *rt_gettype_boxed_array(struct rt_type *elem_type, rt_size_t leng
     return rt_gettype_boxed(rt_gettype_array(elem_type, length));
 }
 
-struct rt_type *rt_gettype_struct(rt_size_t size, u32 field_count, struct rt_struct_field *fields) {
+struct rt_type *rt_gettype_struct(const char *name, rt_size_t size, u32 field_count, struct rt_struct_field *fields) {
     struct rt_type *existing = rt_types.types_struct;
     while (existing) {
         if (existing->size == size && existing->u._struct.field_count == field_count) {
@@ -149,8 +222,10 @@ struct rt_type *rt_gettype_struct(rt_size_t size, u32 field_count, struct rt_str
     struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
     new_type->kind = RT_KIND_STRUCT;
     new_type->size = size;
+    new_type->u._struct.name = name; // TODO: copy?
     new_type->u._struct.field_count = field_count;
     new_type->u._struct.fields = new_fields;
+    new_type->desc = type_to_string(new_type);
     new_type->next = rt_types.types_struct;
     rt_types.types_struct = new_type;
     return new_type;

@@ -42,6 +42,8 @@ struct rt_type {
     enum rt_kind kind;
     u32 flags;
 
+    const char *desc;
+
     /* the size of a storage location of this type.
        if 0 then this type is unsized and can't be used for a storage location.
        in that case in needs to be boxed. */
@@ -60,6 +62,7 @@ struct rt_type {
         } ptr;
 
         struct {
+            const char *name;
             u32 field_count;
             struct rt_struct_field *fields;
         } _struct;
@@ -233,7 +236,7 @@ struct rt_type *rt_gettype_weak(struct rt_type *ptr_type);
 struct rt_type *rt_gettype_weak_boxed(struct rt_type *target_type);
 struct rt_type *rt_gettype_array(struct rt_type *elem_type, rt_size_t length);
 struct rt_type *rt_gettype_boxed_array(struct rt_type *elem_type, rt_size_t length);
-struct rt_type *rt_gettype_struct(rt_size_t size, u32 field_count, struct rt_struct_field *fields);
+struct rt_type *rt_gettype_struct(const char *name, rt_size_t size, u32 field_count, struct rt_struct_field *fields);
 
 bool rt_any_to_bool(struct rt_any a);
 f64 rt_any_to_f64(struct rt_any a);

@@ -26,11 +26,11 @@ static struct typemap typemap;
 
 void rt_init_types() {
     struct rt_struct_field string_fields[1] = {{ rt_gettype_array(rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u8)), 0), "chars", 0 }};
-    rt_types.string = rt_gettype_struct(0, 1, string_fields);
+    rt_types.string = rt_gettype_struct("string", 0, 1, string_fields);
     rt_types.boxed_string = rt_gettype_boxed(rt_types.string);
 
     struct rt_struct_field symbol_fields[1] = {{ rt_types.string, "string", 0 }};
-    rt_types.symbol = rt_gettype_struct(0, 1, symbol_fields);
+    rt_types.symbol = rt_gettype_struct("symbol", 0, 1, symbol_fields);
     rt_types.ptr_symbol = rt_gettype_ptr(rt_types.symbol);
 
     DEF_SIMPLE_TYPE(struct rt_any, any, RT_KIND_ANY);
@@ -55,7 +55,7 @@ void rt_init_types() {
         { rt_types.any, "car", offsetof(struct rt_cons, car) },
         { rt_types.any, "cdr", offsetof(struct rt_cons, cdr) },
     };
-    rt_types.cons = rt_gettype_struct(sizeof(struct rt_cons), 2, cons_fields);
+    rt_types.cons = rt_gettype_struct("cons", sizeof(struct rt_cons), 2, cons_fields);
     rt_types.boxed_cons = rt_gettype_boxed(rt_types.cons);
 }
 
@@ -67,6 +67,7 @@ struct rt_type *rt_lookup_simple_type(struct rt_any sym) {
     }
     return NULL;
 }
+
 
 struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct rt_any cdr) {
     struct rt_cons *cons = rt_gc_alloc(ctx, sizeof(struct rt_cons));
