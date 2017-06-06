@@ -65,8 +65,11 @@ void rt_init_types() {
 
     DEF_SIMPLE_TYPE_FULL(bool, _bool, "bool", RT_KIND_BOOL);
 
-    DEF_SIMPLE_TYPE(struct rt_cons, cons, RT_KIND_CONS);
-
+    struct rt_struct_field cons_fields[2] = {
+        { rt_types.any, "car", offsetof(struct rt_cons, car) },
+        { rt_types.any, "cdr", offsetof(struct rt_cons, cdr) },
+    };
+    rt_types.cons = rt_gettype_struct(sizeof(struct rt_cons), 2, cons_fields);
     rt_types.boxed_cons = rt_gettype_boxed(rt_types.cons);
 }
 

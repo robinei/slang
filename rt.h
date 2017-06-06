@@ -21,7 +21,6 @@ enum rt_kind {
     /* composite kinds */
     RT_KIND_STRUCT,
     RT_KIND_ARRAY,
-    RT_KIND_CONS,
 
     /* scalar kinds */
     RT_KIND_BOOL,
@@ -177,8 +176,6 @@ struct rt_symbol_index {
     struct rt_any f64;
 
     struct rt_any _bool;
-
-    struct rt_any cons;
 };
 
 struct rt_type_index {
@@ -254,7 +251,7 @@ bool rt_any_equals(struct rt_any a, struct rt_any b);
 #define rt_any_is_signed(any) ((any)._type && (any)._type->kind == RT_KIND_SIGNED)
 #define rt_any_is_real(any) ((any)._type && (any)._type->kind == RT_KIND_REAL)
 #define rt_any_is_func(any) ((any)._type && (any)._type->kind == RT_KIND_FUNC)
-#define rt_any_is_cons(any) ((any)._type && (any)._type->kind == RT_KIND_CONS)
+#define rt_any_is_cons(any) (rt_any_get_type(any) == rt_types.boxed_cons)
 #define rt_any_is_symbol(any) (rt_any_get_type(any) == rt_types.ptr_symbol)
 
 #define rt_any_from_ptr(type, pointer) ((struct rt_any) { type, { .ptr = (pointer) } })

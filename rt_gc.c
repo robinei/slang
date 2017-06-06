@@ -110,14 +110,14 @@ static void rt_gc_add_weakptr(struct rt_thread_ctx *ctx, void **ptr, struct rt_t
 }
 
 static void rt_gc_mark_single(struct rt_thread_ctx *ctx, char *ptr, struct rt_type *type) {
+    struct rt_any *any;
     switch (type->kind) {
-    case RT_KIND_ANY: {
-        struct rt_any *any = (struct rt_any *)ptr;
+    case RT_KIND_ANY:
+        any = (struct rt_any *)ptr;
         if (any->_type) {
             rt_gc_mark_single(ctx, (char *)&any->u.data, any->_type);
         }
         break;
-    }
     case RT_KIND_PTR:
         if (!*(char **)ptr) {
             break;
@@ -140,16 +140,6 @@ static void rt_gc_mark_single(struct rt_thread_ctx *ctx, char *ptr, struct rt_ty
     case RT_KIND_ARRAY:
         rt_gc_mark_array(ctx, ptr, type);
         break;
-    case RT_KIND_CONS: {
-        struct rt_cons *cons = (struct rt_cons *)ptr;
-        if (cons->car._type) {
-            rt_gc_mark_single(ctx, (char *)&cons->car.u.data, cons->car._type);
-        }
-        if (cons->cdr._type) {
-            rt_gc_mark_single(ctx, (char *)&cons->cdr.u.data, cons->cdr._type);
-        }
-        break;
-    }
     default:
         break;
     }
