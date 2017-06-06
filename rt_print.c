@@ -27,33 +27,6 @@ static void rt_print_ptr(char *ptr, struct rt_type *type) {
             printf("%s", sym->string.chars.data);
             break;
         }
-        if (type == rt_types.cons) {
-            struct rt_cons *cons = (struct rt_cons *)ptr;
-            if (!cons) {
-                printf("nil"); // TODO: make weak references also reset the type for rt_any cells
-                break;
-            }
-            bool first = true;
-            printf("(");
-            while (cons) {
-                if (!first) {
-                    printf(" ");
-                }
-                first = false;
-                rt_print(cons->car);
-                if (rt_any_is_nil(cons->cdr)) {
-                    break;
-                }
-                if (!rt_any_is_cons(cons->cdr)) {
-                    printf(" . ");
-                    rt_print(cons->cdr);
-                    break;
-                }
-                cons = (struct rt_cons *)cons->cdr.u.ptr;
-            }
-            printf(")");
-            break;
-        }
         printf("{");
         u32 field_count = type->u._struct.field_count;
         for (u32 i = 0; i < field_count; ++i) {
@@ -86,6 +59,33 @@ static void rt_print_ptr(char *ptr, struct rt_type *type) {
             }
         }
         printf("]");
+        break;
+    }
+    case RT_KIND_CONS: {
+        struct rt_cons *cons = (struct rt_cons *)ptr;
+        if (!cons) {
+            printf("nil"); // TODO: make weak references also reset the type for rt_any cells
+            break;
+        }
+        bool first = true;
+        printf("(");
+        while (cons) {
+            if (!first) {
+                printf(" ");
+            }
+            first = false;
+            rt_print(cons->car);
+            if (rt_any_is_nil(cons->cdr)) {
+                break;
+            }
+            if (!rt_any_is_cons(cons->cdr)) {
+                printf(" . ");
+                rt_print(cons->cdr);
+                break;
+            }
+            cons = (struct rt_cons *)cons->cdr.u.ptr;
+        }
+        printf(")");
         break;
     }
     case RT_KIND_BOOL:
