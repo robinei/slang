@@ -283,7 +283,7 @@ struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any parent_fo
     } \
     struct rt_array_##propername { \
         rt_size_t length; \
-        type data[]; \
+        type data[1]; \
     };
 
 #define RT_DEF_SCALAR(typ, kind) \

@@ -126,6 +126,12 @@ static void rt_print_ptr(char *ptr, struct rt_type *type) {
         case 8: printf("%f", *(f64 *)ptr); break;
         }
         break;
+    case RT_KIND_FUNC:
+        printf("func"); /* TODO: handle */
+        break;
+    case RT_KIND_TYPE:
+        printf("type"); /* TODO: handle */
+        break;
     }
 }
 

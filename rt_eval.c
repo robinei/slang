@@ -103,7 +103,7 @@ static struct rt_any rt_ast_eval_toplevel(struct eval_state *state, struct rt_as
         break;
     case RT_ASTNODE_DEF_CONST_GLOBAL: {
         struct rt_any dummy;
-        if (valuemap_get(&state->globals, node->u.set_const_global.name, &result)) {
+        if (valuemap_get(&state->globals, node->u.set_const_global.name, &dummy)) {
             eval_error(node, "redefinition of already defined toplevel name: %s", node->u.set_const_global.name);
             break;
         }

@@ -117,7 +117,7 @@ struct rt_any rt_get_symbol(const char *str) {
         sym = calloc(1, sizeof(struct rt_symbol) + length + 1);
         sym->string.chars.length = length;
         memcpy(sym->string.chars.data, str, length + 1);
-        symtab_put(&symtab, sym->string.chars.data, sym);
+        symtab_put(&symtab, (char *)sym->string.chars.data, sym);
     }
     return rt_any_from_symbol(sym);
 }
