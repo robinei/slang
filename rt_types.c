@@ -86,11 +86,7 @@ struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct r
     struct rt_cons *cons = rt_gc_alloc(ctx, sizeof(struct rt_cons));
     cons->car = car;
     cons->cdr = cdr;
-
-    struct rt_any any;
-    any._type = rt_types.boxed_cons;
-    any.u.ptr = cons;
-    return any;
+    return rt_any_from_cons(cons);
 }
 
 struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct rt_type *ptr_type) {
@@ -108,11 +104,7 @@ struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct r
     
     void *array = rt_gc_alloc(ctx, sizeof(rt_size_t) + length*elem_size);
     *(rt_size_t *)array = length;
-
-    struct rt_any any;
-    any._type = ptr_type;
-    any.u.ptr = array;
-    return any;
+    return rt_any_from_ptr(ptr_type, array);
 }
 
 struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str) {
@@ -120,11 +112,7 @@ struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str) {
     struct rt_string *string = rt_gc_alloc(ctx, sizeof(struct rt_string) + length + 1);
     string->chars.length = length;
     memcpy(string->chars.data, str, length + 1);
-
-    struct rt_any any;
-    any._type = rt_types.boxed_string;
-    any.u.ptr = string;
-    return any;
+    return rt_any_from_string(string);
 }
 
 
@@ -152,8 +140,5 @@ struct rt_any rt_get_symbol(const char *str) {
         memcpy(sym->string.chars.data, str, length + 1);
         symtab_put(&symtab, sym->string.chars.data, sym);
     }
-    struct rt_any any;
-    any._type = rt_types.ptr_symbol;
-    any.u.ptr = sym;
-    return any;
+    return rt_any_from_symbol(sym);
 }

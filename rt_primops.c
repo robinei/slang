@@ -5,10 +5,7 @@ struct rt_any rt_weak_any(struct rt_any any) {
     if (type->kind != RT_KIND_PTR) {
         return any;
     }
-    struct rt_any new_any;
-    new_any._type = rt_gettype_weak(type);
-    new_any.u.ptr = any.u.ptr;
-    return new_any;
+    return rt_any_from_ptr(rt_gettype_weak(type), any.u.ptr);
 }
 
 bool rt_any_to_bool(struct rt_any a) {

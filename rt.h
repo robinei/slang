@@ -254,6 +254,11 @@ bool rt_any_equals(struct rt_any a, struct rt_any b);
 #define rt_any_is_cons(any) (rt_any_get_type(any) == rt_types.boxed_cons)
 #define rt_any_is_symbol(any) (rt_any_get_type(any) == rt_types.ptr_symbol)
 
+#define rt_any_from_ptr(type, pointer) ((struct rt_any) { type, { .ptr = (pointer) } })
+#define rt_any_from_cons(Cons) ((struct rt_any) { rt_types.boxed_cons, { .cons = (Cons) } })
+#define rt_any_from_string(str) ((struct rt_any) { rt_types.boxed_string, { .string = (str) } })
+#define rt_any_from_symbol(sym) ((struct rt_any) { rt_types.ptr_symbol, { .symbol = (sym) } })
+
 /* allocate a boxed chunk of memory which will be managed by the GC.
    the box header precedes the location pointed to by the returned pointer */
 void *rt_gc_alloc(struct rt_thread_ctx *ctx, rt_size_t size);
