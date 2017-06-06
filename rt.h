@@ -129,6 +129,9 @@ struct rt_box {
 
 struct rt_weakptr_entry {
     void **ptr;
+    /* if ptr is in a struct rt_any then any_type will point to its type pointer,
+       so the type can be cleared when the pointer is */
+    struct rt_type **any_type;
     struct rt_type *type;
 };
 

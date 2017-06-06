@@ -133,11 +133,16 @@ struct rt_type *rt_gettype_boxed(struct rt_type *target_type) {
 }
 
 struct rt_type *rt_gettype_weak(struct rt_type *ptr_type) {
+    if (ptr_type->flags & RT_TYPE_FLAG_WEAK_PTR) {
+        return ptr_type;
+    }
     assert(ptr_type->kind == RT_KIND_PTR);
     assert(ptr_type->u.ptr.box_type);
     struct rt_type *existing = rt_types.types_weakptr;
     while (existing) {
-        if (existing->u.ptr.target_type == ptr_type->u.ptr.target_type) {
+        if (existing->u.ptr.target_type == ptr_type->u.ptr.target_type &&
+            existing->u.ptr.box_type == ptr_type->u.ptr.box_type &&
+            existing->u.ptr.box_offset == ptr_type->u.ptr.box_offset) {
             return existing;
         }
         existing = existing->next;

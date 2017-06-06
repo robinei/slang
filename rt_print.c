@@ -6,10 +6,6 @@
 static void rt_print_ptr(char *ptr, struct rt_type *type);
 
 static void rt_print_cons(struct rt_cons *cons) {
-    if (!cons) {
-        printf("nil"); // TODO: make weak references also reset the type for rt_any cells
-        return;
-    }
     bool first = true;
     printf("(");
     while (cons) {

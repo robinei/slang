@@ -47,8 +47,18 @@ static bool rt_gc_type_needs_scan(struct rt_type *type) {
     }
 }
 
+static void rt_gc_add_weakptr(struct rt_thread_ctx *ctx, void **ptr, struct rt_type **any_type, struct rt_type *type) {
+    if (ctx->num_weakptrs == ctx->max_weakptrs) {
+        ctx->max_weakptrs = ctx->max_weakptrs ? ctx->max_weakptrs * 2 : 16;
+        ctx->weakptrs = realloc(ctx->weakptrs, sizeof(struct rt_weakptr_entry) * ctx->max_weakptrs);
+    }
+    struct rt_weakptr_entry *e = &ctx->weakptrs[ctx->num_weakptrs++];
+    e->ptr = ptr;
+    e->any_type = any_type;
+    e->type = type;
+}
+
 static void rt_gc_mark_array(struct rt_thread_ctx *ctx, char *ptr, struct rt_type *type) {
-    struct rt_any *any;
     struct rt_type *elem_type = type->u.array.elem_type;
     rt_size_t elem_size = elem_type->size;
     
@@ -64,9 +74,13 @@ static void rt_gc_mark_array(struct rt_thread_ctx *ctx, char *ptr, struct rt_typ
     switch (elem_type->kind) {
     case RT_KIND_ANY:
         for (rt_size_t i = 0; i < length; ++i) {
-            any = (struct rt_any *)(ptr + i*elem_size);
+            struct rt_any *any = (struct rt_any *)(ptr + i*elem_size);
             if (any->_type) {
-                rt_gc_mark_single(ctx, (char *)&any->u.data, any->_type);
+                if (any->_type->flags & RT_TYPE_FLAG_WEAK_PTR) {
+                    rt_gc_add_weakptr(ctx, &any->u.ptr, &any->_type, any->_type);
+                } else {
+                    rt_gc_mark_single(ctx, (char *)&any->u.data, any->_type);
+                }
             }
         }
         break;
@@ -99,32 +113,26 @@ static void rt_gc_mark_array(struct rt_thread_ctx *ctx, char *ptr, struct rt_typ
     }
 }
 
-static void rt_gc_add_weakptr(struct rt_thread_ctx *ctx, void **ptr, struct rt_type *type) {
-    if (ctx->num_weakptrs == ctx->max_weakptrs) {
-        ctx->max_weakptrs = ctx->max_weakptrs ? ctx->max_weakptrs * 2 : 16;
-        ctx->weakptrs = realloc(ctx->weakptrs, sizeof(struct rt_weakptr_entry) * ctx->max_weakptrs);
-    }
-    struct rt_weakptr_entry *e = &ctx->weakptrs[ctx->num_weakptrs++];
-    e->ptr = ptr;
-    e->type = type;
-}
-
 static void rt_gc_mark_single(struct rt_thread_ctx *ctx, char *ptr, struct rt_type *type) {
-    struct rt_any *any;
     switch (type->kind) {
-    case RT_KIND_ANY:
-        any = (struct rt_any *)ptr;
+    case RT_KIND_ANY: {
+        struct rt_any *any = (struct rt_any *)ptr;
         if (any->_type) {
-            rt_gc_mark_single(ctx, (char *)&any->u.data, any->_type);
+            if (any->_type->flags & RT_TYPE_FLAG_WEAK_PTR) {
+                rt_gc_add_weakptr(ctx, &any->u.ptr, &any->_type, any->_type);
+            } else {
+                rt_gc_mark_single(ctx, (char *)&any->u.data, any->_type);
+            }
         }
         break;
+    }
     case RT_KIND_PTR:
         if (!*(char **)ptr) {
             break;
         }
         if (type->u.ptr.box_type) {
             if (type->flags & RT_TYPE_FLAG_WEAK_PTR) {
-                rt_gc_add_weakptr(ctx, (void **)ptr, type);
+                rt_gc_add_weakptr(ctx, (void **)ptr, NULL, type);
             } else {
                 rt_gc_mark_box(ctx,
                     (struct rt_box *)(*(char **)ptr - type->u.ptr.box_offset - sizeof(struct rt_box)),
@@ -176,6 +184,9 @@ void rt_gc_run(struct rt_thread_ctx *ctx) {
         struct rt_box *box = (struct rt_box *)(*(char **)e.ptr - e.type->u.ptr.box_offset - sizeof(struct rt_box));
         if (!rt_boxheader_is_marked(box->header)) {
             *e.ptr = NULL;
+            if (e.any_type) {
+                *e.any_type = NULL;
+            }
         }
     }
 
