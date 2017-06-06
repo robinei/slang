@@ -10,7 +10,7 @@ struct parse_state {
 
 static void parse_error(struct rt_thread_ctx *ctx, struct rt_any form, const char *fmt, ...) {
     struct rt_sourceloc loc;
-    if (form.type == rt_types.boxed_cons && rt_sourcemap_get(&ctx->sourcemap, form.u.ptr, &loc)) {
+    if (rt_any_is_cons(form) && rt_sourcemap_get(&ctx->sourcemap, form.u.cons, &loc)) {
         printf("line %d, col %d: ", loc.line + 1, loc.col + 1);
     } else {
         printf("line ?, col ?: ");
@@ -62,7 +62,7 @@ struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any parent_fo
             return NULL;
         }
         struct rt_any elem_count = rt_any_to_unsigned(rt_car(cons3.u.ptr));
-        if (elem_count.type->kind != RT_KIND_UNSIGNED) {
+        if (!rt_any_is_unsigned(elem_count)) {
             parse_error(ctx, cons3, "invalid array type. expected element count");
             return NULL;
         }

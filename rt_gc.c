@@ -65,8 +65,8 @@ static void rt_gc_mark_array(struct rt_thread_ctx *ctx, char *ptr, struct rt_typ
     case RT_KIND_ANY:
         for (rt_size_t i = 0; i < length; ++i) {
             any = (struct rt_any *)(ptr + i*elem_size);
-            if (any->type) {
-                rt_gc_mark_single(ctx, (char *)&any->u.data, any->type);
+            if (any->_type) {
+                rt_gc_mark_single(ctx, (char *)&any->u.data, any->_type);
             }
         }
         break;
@@ -114,8 +114,8 @@ static void rt_gc_mark_single(struct rt_thread_ctx *ctx, char *ptr, struct rt_ty
     switch (type->kind) {
     case RT_KIND_ANY:
         any = (struct rt_any *)ptr;
-        if (any->type) {
-            rt_gc_mark_single(ctx, (char *)&any->u.data, any->type);
+        if (any->_type) {
+            rt_gc_mark_single(ctx, (char *)&any->u.data, any->_type);
         }
         break;
     case RT_KIND_PTR:

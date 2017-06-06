@@ -48,6 +48,7 @@ void rt_init_types() {
     rt_types.ptr_symbol = rt_gettype_ptr(rt_types.symbol);
 
     DEF_SIMPLE_TYPE(struct rt_any, any, RT_KIND_ANY);
+    DEF_SIMPLE_TYPE(void *, nil, RT_KIND_NIL);
 
     DEF_SIMPLE_TYPE(u8, u8, RT_KIND_UNSIGNED);
     DEF_SIMPLE_TYPE(u16, u16, RT_KIND_UNSIGNED);
@@ -73,7 +74,7 @@ void rt_init_types() {
 }
 
 struct rt_type *rt_lookup_simple_type(struct rt_any sym) {
-    assert(sym.type == rt_types.ptr_symbol);
+    assert(rt_any_is_symbol(sym));
     struct rt_type *result;
     if (typemap_get(&typemap, sym.u.ptr, &result)) {
         return result;
@@ -87,7 +88,7 @@ struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct r
     cons->cdr = cdr;
 
     struct rt_any any;
-    any.type = rt_types.boxed_cons;
+    any._type = rt_types.boxed_cons;
     any.u.ptr = cons;
     return any;
 }
@@ -109,7 +110,7 @@ struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct r
     *(rt_size_t *)array = length;
 
     struct rt_any any;
-    any.type = ptr_type;
+    any._type = ptr_type;
     any.u.ptr = array;
     return any;
 }
@@ -121,7 +122,7 @@ struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str) {
     memcpy(string->chars.data, str, length + 1);
 
     struct rt_any any;
-    any.type = rt_types.boxed_string;
+    any._type = rt_types.boxed_string;
     any.u.ptr = string;
     return any;
 }
@@ -152,7 +153,7 @@ struct rt_any rt_get_symbol(const char *str) {
         symtab_put(&symtab, sym->string.chars.data, sym);
     }
     struct rt_any any;
-    any.type = rt_types.ptr_symbol;
+    any._type = rt_types.ptr_symbol;
     any.u.ptr = sym;
     return any;
 }

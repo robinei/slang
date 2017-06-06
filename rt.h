@@ -12,6 +12,8 @@ typedef uintptr_t rt_size_t;
 enum rt_kind {
     /* tuple of type pointer and value, where value is described by type */
     RT_KIND_ANY,
+
+    RT_KIND_NIL,
     
     /* pointer to inside boxes or to stack or unmanaged memory */
     RT_KIND_PTR,
@@ -86,7 +88,8 @@ struct rt_fun_param {
 };
 
 struct rt_any {
-    struct rt_type *type;
+    /* non't use directly as it can be NULL which should mean the type is rt_types.nil */
+    struct rt_type *_type;
 
     union {
         uintptr_t data;
@@ -157,6 +160,7 @@ struct rt_thread_ctx {
 
 struct rt_symbol_index {
     struct rt_any any;
+    struct rt_any nil;
 
     struct rt_any u8;
     struct rt_any u16;
@@ -186,6 +190,7 @@ struct rt_type_index {
     /* type shorthands */
 
     struct rt_type *any;
+    struct rt_type *nil;
     
     struct rt_type *u8;
     struct rt_type *u16;
@@ -239,9 +244,15 @@ struct rt_any rt_any_to_signed(struct rt_any a);
 struct rt_any rt_any_to_unsigned(struct rt_any a);
 bool rt_any_equals(struct rt_any a, struct rt_any b);
 
-#define rt_any_is_nil(any) (!(any).type || ((any).type == rt_types.boxed_cons && !(any).u.ptr))
-#define rt_any_is_cons(any) ((any).type == rt_types.boxed_cons && (any).u.ptr)
-#define rt_any_is_symbol(any) ((any).type == rt_types.ptr_symbol)
+#define rt_any_get_type(any) ((any)._type ? (any)._type : rt_types.nil)
+#define rt_any_is_nil(any) (!(any)._type || (any)._type == rt_types.nil)
+#define rt_any_is_bool(any) ((any)._type && (any)._type->kind == RT_KIND_BOOL)
+#define rt_any_is_unsigned(any) ((any)._type && (any)._type->kind == RT_KIND_UNSIGNED)
+#define rt_any_is_signed(any) ((any)._type && (any)._type->kind == RT_KIND_SIGNED)
+#define rt_any_is_real(any) ((any)._type && (any)._type->kind == RT_KIND_REAL)
+#define rt_any_is_func(any) ((any)._type && (any)._type->kind == RT_KIND_FUNC)
+#define rt_any_is_cons(any) (rt_any_get_type(any) == rt_types.boxed_cons)
+#define rt_any_is_symbol(any) (rt_any_get_type(any) == rt_types.ptr_symbol)
 
 /* allocate a boxed chunk of memory which will be managed by the GC.
    the box header precedes the location pointed to by the returned pointer */
@@ -255,16 +266,16 @@ void rt_print(struct rt_any any);
 struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any parent_form, struct rt_any form);
 
 
-#define RT_DEF_SCALAR_FULL(typ, name, propername, kind) \
-    static struct rt_any rt_new_##propername(typ value) { \
+#define RT_DEF_SCALAR_FULL(type, name, propername, kind) \
+    static struct rt_any rt_new_##propername(type value) { \
         struct rt_any any; \
-        any.type = rt_types.name; \
+        any._type = rt_types.name; \
         any.u.name = value; \
         return any; \
     } \
     struct rt_array_##propername { \
         rt_size_t length; \
-        typ data[]; \
+        type data[]; \
     };
 
 #define RT_DEF_SCALAR(typ, kind) \

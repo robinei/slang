@@ -59,7 +59,7 @@ static struct rt_any rt_ast_eval_expr(struct eval_state *state, struct rt_astnod
         break;
     case RT_ASTNODE_COND: {
         struct rt_any pred_result = rt_ast_eval_expr(state, node->u.cond.pred_expr);
-        if (pred_result.type->kind != RT_KIND_BOOL) {
+        if (!rt_any_is_bool(pred_result)) {
             eval_error(node, "boolean value required for conditional predicate");
             break;
         }
@@ -74,7 +74,7 @@ static struct rt_any rt_ast_eval_expr(struct eval_state *state, struct rt_astnod
     case RT_ASTNODE_LOOP: {
         for (;;) {
             struct rt_any pred_result = rt_ast_eval_expr(state, node->u.loop.pred_expr);
-            if (pred_result.type->kind != RT_KIND_BOOL) {
+            if (!rt_any_is_bool(pred_result)) {
                 eval_error(node, "boolean value required for loop predicate");
                 break;
             }
@@ -87,7 +87,7 @@ static struct rt_any rt_ast_eval_expr(struct eval_state *state, struct rt_astnod
     }
     case RT_ASTNODE_CALL: {
         struct rt_any func_result = rt_ast_eval_expr(state, node->u.call.func_expr);
-        if (func_result.type->kind != RT_KIND_FUNC) {
+        if (!rt_any_is_func(func_result)) {
             eval_error(node, "expected a callable value");
             break;
         }

@@ -4,16 +4,15 @@
 #include <stdio.h>
 
 static void rt_print_ptr(char *ptr, struct rt_type *type) {
-    if (!type) {
-        printf("nil");
-        return;
-    }
     switch (type->kind) {
     case RT_KIND_ANY: {
         struct rt_any *any = (struct rt_any *)ptr;
-        rt_print_ptr((char *)&any->u.data, any->type);
+        rt_print_ptr((char *)&any->u.data, rt_any_get_type(*any));
         break;
     }
+    case RT_KIND_NIL:
+        printf("nil");
+        break;
     case RT_KIND_PTR:
         rt_print_ptr(*(char **)ptr, type->u.ptr.target_type);
         break;
@@ -31,7 +30,7 @@ static void rt_print_ptr(char *ptr, struct rt_type *type) {
         if (type == rt_types.cons) {
             struct rt_cons *cons = (struct rt_cons *)ptr;
             if (!cons) {
-                printf("nil");
+                printf("nil"); // TODO: make weak references also reset the type for rt_any cells
                 break;
             }
             bool first = true;
@@ -42,10 +41,10 @@ static void rt_print_ptr(char *ptr, struct rt_type *type) {
                 }
                 first = false;
                 rt_print(cons->car);
-                if (!cons->cdr.type) {
+                if (rt_any_is_nil(cons->cdr)) {
                     break;
                 }
-                if (cons->cdr.type != rt_types.boxed_cons) {
+                if (!rt_any_is_cons(cons->cdr)) {
                     printf(" . ");
                     rt_print(cons->cdr);
                     break;
@@ -118,5 +117,5 @@ static void rt_print_ptr(char *ptr, struct rt_type *type) {
 }
 
 void rt_print(struct rt_any any) {
-    rt_print_ptr((char *)&any.u.data, any.type);
+    rt_print_ptr((char *)&any.u.data, rt_any_get_type(any));
 }
