@@ -6,18 +6,9 @@
 #include <string.h>
 
 #include "hashtable.h"
-#include "murmur3.h"
 
-static uint32_t str_hash(const char *key) {
-    uint32_t hash;
-    MurmurHash3_x86_32(key, strlen(key), 0, &hash);
-    return hash;
-}
-static int str_equals(const char *a, const char *b) {
-    return strcmp(a, b) == 0;
-}
 DECL_HASH_TABLE(valuemap, const char *, struct rt_any)
-IMPL_HASH_TABLE(valuemap, const char *, struct rt_any, str_hash, str_equals)
+IMPL_HASH_TABLE(valuemap, const char *, struct rt_any, hashutil_str_hash, hashutil_str_equals)
 
 
 struct eval_state {

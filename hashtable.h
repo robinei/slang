@@ -1,6 +1,32 @@
 #ifndef HASHTABLE_H
 #define HASHTABLE_H
 
+#include <string.h>
+#include "murmur3.h"
+
+static uint32_t hashutil_str_hash(const char *key) {
+    uint32_t hash;
+    MurmurHash3_x86_32(key, strlen(key), 0, &hash);
+    return hash;
+}
+static int hashutil_str_equals(const char *a, const char *b) {
+    return strcmp(a, b) == 0;
+}
+
+static u32 hashutil_ptr_hash(void *ptr) {
+    u32 val = (u32)(intptr_t)ptr;
+    val = ~val + (val << 15);
+    val = val ^ (val >> 12);
+    val = val + (val << 2);
+    val = val ^ (val >> 4);
+    val = val * 2057;
+    val = val ^ (val >> 16);
+    return val;
+}
+static bool hashutil_ptr_equals(void *a, void *b) {
+    return a == b;
+}
+
 static uint32_t hashutil_next_pow2(uint32_t v) {
     v--;
     v |= v >> 1;

@@ -5,20 +5,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-static u32 pointer_hash(struct rt_cons *ptr) {
-    u32 val = (u32)(intptr_t)ptr;
-    val = ~val + (val << 15);
-    val = val ^ (val >> 12);
-    val = val + (val << 2);
-    val = val ^ (val >> 4);
-    val = val * 2057;
-    val = val ^ (val >> 16);
-    return val;
-}
-static bool pointer_equals(struct rt_cons *a, struct rt_cons *b) {
-    return a == b;
-}
-IMPL_HASH_TABLE(rt_sourcemap, struct rt_cons *, struct rt_sourceloc, pointer_hash, pointer_equals)
+IMPL_HASH_TABLE(rt_sourcemap, struct rt_cons *, struct rt_sourceloc, hashutil_ptr_hash, hashutil_ptr_equals)
 
 
 long long int my_strtoll(const char *nptr, const char **endptr, int base);

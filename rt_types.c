@@ -1,6 +1,5 @@
 #include "rt.h"
 #include "hashtable.h"
-#include "murmur3.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -11,21 +10,8 @@ struct rt_type_index rt_types;
 struct rt_any rt_nil;
 
 
-static u32 pointer_hash(struct rt_symbol *ptr) {
-    u32 val = (u32)(intptr_t)ptr;
-    val = ~val + (val << 15);
-    val = val ^ (val >> 12);
-    val = val + (val << 2);
-    val = val ^ (val >> 4);
-    val = val * 2057;
-    val = val ^ (val >> 16);
-    return val;
-}
-static bool pointer_equals(struct rt_symbol *a, struct rt_symbol *b) {
-    return a == b;
-}
 DECL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *)
-IMPL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *, pointer_hash, pointer_equals)
+IMPL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *, hashutil_ptr_hash, hashutil_ptr_equals)
 
 static struct typemap typemap;
 
@@ -116,16 +102,8 @@ struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str) {
 }
 
 
-static uint32_t str_hash(const char *key) {
-    uint32_t hash;
-    MurmurHash3_x86_32(key, strlen(key), 0, &hash);
-    return hash;
-}
-static int str_equals(const char *a, const char *b) {
-    return strcmp(a, b) == 0;
-}
 DECL_HASH_TABLE(symtab, const char *, struct rt_symbol *)
-IMPL_HASH_TABLE(symtab, const char *, struct rt_symbol *, str_hash, str_equals)
+IMPL_HASH_TABLE(symtab, const char *, struct rt_symbol *, hashutil_str_hash, hashutil_str_equals)
 
 static struct symtab symtab;
 
