@@ -34,12 +34,12 @@ static void rt_print_cons(struct rt_cons *cons) {
 static void rt_print_struct(char *ptr, struct rt_type *type) {
     if (type == rt_types.string) {
         struct rt_string *string = (struct rt_string *)ptr;
-        printf("\"%s\"", string->chars.data);
+        printf("\"%s\"", string->data);
         return;
     }
     if (type == rt_types.symbol) {
         struct rt_symbol *sym = (struct rt_symbol *)ptr;
-        printf("%s", sym->string.chars.data);
+        printf("%s", sym->data);
         return;
     }
     if (type == rt_types.cons) {

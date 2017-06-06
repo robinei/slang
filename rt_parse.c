@@ -77,6 +77,6 @@ struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any valid_con
         return rt_gettype_array(elem_type, count);
     }
 
-    parse_error(ctx, cons1, "unrecognized type: %s", ((struct rt_symbol *)form.u.ptr)->string.chars.data);
+    parse_error(ctx, cons1, "unrecognized type: %s", ((struct rt_symbol *)form.u.ptr)->data);
     return NULL;
 }

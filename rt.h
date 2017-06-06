@@ -280,11 +280,7 @@ struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any parent_fo
         any._type = rt_types.name; \
         any.u.name = value; \
         return any; \
-    } \
-    struct rt_array_##propername { \
-        rt_size_t length; \
-        type data[1]; \
-    };
+    }
 
 #define RT_DEF_SCALAR(typ, kind) \
     RT_DEF_SCALAR_FULL(typ, typ, typ, kind)
@@ -318,11 +314,13 @@ struct rt_cons {
 };
 
 struct rt_string {
-    struct rt_array_u8 chars;
+    rt_size_t length;
+    char data[];
 };
 
 struct rt_symbol {
-    struct rt_string string;
+    rt_size_t length;
+    char data[];
 };
 
 struct rt_func {

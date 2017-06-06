@@ -25,10 +25,12 @@ static struct typemap typemap;
     DEF_SIMPLE_TYPE_FULL(Type, Name, Name, Kind)
 
 void rt_init_types() {
+    /* string embeds a char array, "subtyping" it, and therefore has identical memory layout */
     struct rt_struct_field string_fields[1] = {{ rt_gettype_array(rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u8)), 0), "chars", 0 }};
     rt_types.string = rt_gettype_struct("string", 0, 1, string_fields);
     rt_types.boxed_string = rt_gettype_boxed(rt_types.string);
 
+    /* symbol embeds string so they have equal memory layout */
     struct rt_struct_field symbol_fields[1] = {{ rt_types.string, "string", 0 }};
     rt_types.symbol = rt_gettype_struct("symbol", 0, 1, symbol_fields);
     rt_types.ptr_symbol = rt_gettype_ptr(rt_types.symbol);
@@ -97,8 +99,8 @@ struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct r
 struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str) {
     rt_size_t length = strlen(str);
     struct rt_string *string = rt_gc_alloc(ctx, sizeof(struct rt_string) + length + 1);
-    string->chars.length = length;
-    memcpy(string->chars.data, str, length + 1);
+    string->length = length;
+    memcpy(string->data, str, length + 1);
     return rt_any_from_string(string);
 }
 
@@ -115,9 +117,9 @@ struct rt_any rt_get_symbol(const char *str) {
     if (!symtab_get(&symtab, str, &sym)) {
         rt_size_t length = strlen(str);
         sym = calloc(1, sizeof(struct rt_symbol) + length + 1);
-        sym->string.chars.length = length;
-        memcpy(sym->string.chars.data, str, length + 1);
-        symtab_put(&symtab, (char *)sym->string.chars.data, sym);
+        sym->length = length;
+        memcpy(sym->data, str, length + 1);
+        symtab_put(&symtab, (char *)sym->data, sym);
     }
     return rt_any_from_symbol(sym);
 }
