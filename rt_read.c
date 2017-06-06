@@ -15,7 +15,7 @@ static u32 pointer_hash(struct rt_cons *ptr) {
     val = val ^ (val >> 16);
     return val;
 }
-static b32 pointer_equals(struct rt_cons *a, struct rt_cons *b) {
+static bool pointer_equals(struct rt_cons *a, struct rt_cons *b) {
     return a == b;
 }
 IMPL_HASH_TABLE(rt_sourcemap, struct rt_cons *, struct rt_sourceloc, pointer_hash, pointer_equals)
@@ -25,17 +25,17 @@ long long int my_strtoll(const char *nptr, const char **endptr, int base);
 double my_strtod(const char *string, const char **endPtr);
 
 
-static b32 is_upper(char ch) { return ch >= 'A' && ch <= 'Z'; }
+static bool is_upper(char ch) { return ch >= 'A' && ch <= 'Z'; }
 
-static b32 is_lower(char ch) { return ch >= 'a' && ch <= 'z'; }
+static bool is_lower(char ch) { return ch >= 'a' && ch <= 'z'; }
 
-static b32 is_alpha(char ch) { return is_upper(ch) || is_lower(ch); }
+static bool is_alpha(char ch) { return is_upper(ch) || is_lower(ch); }
 
-static b32 is_digit(char ch) { return ch >= '0' && ch <= '9'; }
+static bool is_digit(char ch) { return ch >= '0' && ch <= '9'; }
 
-static b32 is_alphanum(char ch) { return is_alpha(ch) || is_digit(ch); }
+static bool is_alphanum(char ch) { return is_alpha(ch) || is_digit(ch); }
 
-static b32 is_symchar(char ch) {
+static bool is_symchar(char ch) {
     switch (ch) {
     case '_':
     case '-':
@@ -49,9 +49,9 @@ static b32 is_symchar(char ch) {
     case '%':
     case '^':
     case '~':
-        return TRUE;
+        return true;
     default:
-        return FALSE;
+        return false;
     }
 }
 
@@ -286,11 +286,11 @@ static struct rt_any read_form(struct reader_state *state) {
         if (ch == 't') {
             step(state);
             expect_delim(state);
-            result = rt_new_b32(TRUE);
+            result = rt_new_bool(true);
         } else if (ch == 'f') {
             step(state);
             expect_delim(state);
-            result = rt_new_b32(FALSE);
+            result = rt_new_bool(false);
         } else {
             read_error(state, "expected #t or #f");
         }

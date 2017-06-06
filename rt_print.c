@@ -34,13 +34,13 @@ static void rt_print_ptr(char *ptr, struct rt_type *type) {
                 printf("nil");
                 break;
             }
-            b32 first = TRUE;
+            bool first = true;
             printf("(");
             while (cons) {
                 if (!first) {
                     printf(" ");
                 }
-                first = FALSE;
+                first = false;
                 rt_print(cons->car);
                 if (!cons->cdr.type) {
                     break;
@@ -90,10 +90,7 @@ static void rt_print_ptr(char *ptr, struct rt_type *type) {
         break;
     }
     case RT_KIND_BOOL:
-        switch (type->size) {
-        case 1: printf("%s", *(b8 *)ptr ? "true" : "false"); break;
-        case 4: printf("%s", *(b32 *)ptr ? "true" : "false"); break;
-        }
+        printf("%s", *(bool *)ptr ? "true" : "false"); break;
         break;
     case RT_KIND_SIGNED:
         switch (type->size) {

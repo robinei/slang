@@ -63,7 +63,7 @@ static struct rt_any rt_ast_eval_expr(struct eval_state *state, struct rt_astnod
             eval_error(node, "boolean value required for conditional predicate");
             break;
         }
-        b32 val = rt_any_to_b32(pred_result);
+        bool val = rt_any_to_bool(pred_result);
         if (!val) {
             result = rt_ast_eval_expr(state, node->u.cond.else_expr);
         } else {
@@ -78,7 +78,7 @@ static struct rt_any rt_ast_eval_expr(struct eval_state *state, struct rt_astnod
                 eval_error(node, "boolean value required for loop predicate");
                 break;
             }
-            b32 val = rt_any_to_b32(pred_result);
+            bool val = rt_any_to_bool(pred_result);
             if (!val) {
                 break;
             }

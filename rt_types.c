@@ -21,7 +21,7 @@ static u32 pointer_hash(struct rt_symbol *ptr) {
     val = val ^ (val >> 16);
     return val;
 }
-static b32 pointer_equals(struct rt_symbol *a, struct rt_symbol *b) {
+static bool pointer_equals(struct rt_symbol *a, struct rt_symbol *b) {
     return a == b;
 }
 DECL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *)
@@ -30,10 +30,13 @@ IMPL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *, pointer_hash, poi
 static struct typemap typemap;
 
 
-#define DEF_SIMPLE_TYPE(type, name, kind) \
-    rt_symbols.name = rt_get_symbol(#name); \
+#define DEF_SIMPLE_TYPE_FULL(type, name, propername, kind) \
+    rt_symbols.name = rt_get_symbol(#propername); \
     rt_types.name = rt_gettype_simple(kind, sizeof(type)); \
     typemap_put(&typemap, rt_symbols.name.u.ptr, rt_types.name);
+
+#define DEF_SIMPLE_TYPE(type, name, kind) \
+    DEF_SIMPLE_TYPE_FULL(type, name, #name, kind)
 
 void rt_init_types() {
     struct rt_struct_field string_fields[1] = {{ rt_gettype_array(rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u8)), 0), "chars", 0 }};
@@ -59,8 +62,7 @@ void rt_init_types() {
     DEF_SIMPLE_TYPE(f32, f32, RT_KIND_REAL);
     DEF_SIMPLE_TYPE(f64, f64, RT_KIND_REAL);
 
-    DEF_SIMPLE_TYPE(b8, b8, RT_KIND_BOOL);
-    DEF_SIMPLE_TYPE(b32, b32, RT_KIND_BOOL);
+    DEF_SIMPLE_TYPE_FULL(bool, _bool, "bool", RT_KIND_BOOL);
 
     struct rt_struct_field cons_fields[2] = {
         { rt_types.any, "car", offsetof(struct rt_cons, car) },

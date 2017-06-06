@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
     rt_box_array_ref(arr.u.ptr, struct rt_any, 1) = cons;
     rt_box_array_ref(arr.u.ptr, struct rt_any, 2) = rt_weak_any(cons);
 
-    rt_box_array_ref(arr.u.ptr, struct rt_any, 3) = rt_new_b32(FALSE);
+    rt_box_array_ref(arr.u.ptr, struct rt_any, 3) = rt_new_bool(false);
     rt_box_array_ref(arr.u.ptr, struct rt_any, 4) = rt_new_u8(99);
     rt_box_array_ref(arr.u.ptr, struct rt_any, 5) = rt_new_f64(4.67);
     rt_box_array_ref(arr.u.ptr, struct rt_any, 6) = rt_new_cons(&ctx, rt_nil, rt_nil);
@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
 
     struct rt_any parent_form = rt_read(&ctx, "((array u32 8))");
     rt_print(parent_form); printf("\n");
-    struct rt_type *type = rt_parse_type(&ctx, parent_form, rt_car(parent_form.u.ptr));
+    //struct rt_type *type = rt_parse_type(&ctx, parent_form, rt_car(parent_form.u.ptr));
 
     rt_print(arr); printf("\n");
 

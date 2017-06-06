@@ -114,12 +114,12 @@ struct rt_type *rt_gettype_struct(rt_size_t size, u32 field_count, struct rt_str
     struct rt_type *existing = rt_types.types_struct;
     while (existing) {
         if (existing->size == size && existing->u._struct.field_count == field_count) {
-            b32 fields_same = TRUE;
+            bool fields_same = true;
             for (u32 i = 0; i < field_count; ++i) {
                 struct rt_struct_field *f1 = existing->u._struct.fields + i;
                 struct rt_struct_field *f2 = fields + i;
                 if (f1->type != f2->type || strcmp(f1->name, f2->name) || f1->offset != f2->offset) {
-                    fields_same = FALSE;
+                    fields_same = false;
                     break;
                 }
             }

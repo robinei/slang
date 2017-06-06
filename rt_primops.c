@@ -13,12 +13,9 @@ struct rt_any rt_weak_any(struct rt_any any) {
     return new_any;
 }
 
-b32 rt_any_to_b32(struct rt_any a) {
+bool rt_any_to_bool(struct rt_any a) {
     assert(a.type->kind == RT_KIND_BOOL);
-    if (a.type->size == 1) {
-        return a.u.b8;
-    }
-    return a.u.b32;
+    return a.u._bool;
 }
 
 f64 rt_any_to_f64(struct rt_any a) {
@@ -71,12 +68,12 @@ struct rt_any rt_any_to_unsigned(struct rt_any a) {
     return a;
 }
 
-b32 rt_any_equals(struct rt_any a, struct rt_any b) {
+bool rt_any_equals(struct rt_any a, struct rt_any b) {
     if (!a.type && !b.type) {
-        return TRUE;
+        return true;
     }
     if (!a.type || !b.type) {
-        return FALSE;
+        return false;
     }
     if (a.type->kind != b.type->kind) {
         if (a.type->kind == RT_KIND_UNSIGNED) {
@@ -90,17 +87,17 @@ b32 rt_any_equals(struct rt_any a, struct rt_any b) {
                 b = rt_any_to_signed(b);
             }
         } else {
-            return FALSE;
+            return false;
         }
         if (a.type->kind != b.type->kind) {
-            return FALSE;
+            return false;
         }
     }
     switch (a.type->kind) {
     case RT_KIND_PTR:
         return a.u.ptr == b.u.ptr;
     case RT_KIND_BOOL:
-        return rt_any_to_b32(a) == rt_any_to_b32(b);
+        return rt_any_to_bool(a) == rt_any_to_bool(b);
     case RT_KIND_SIGNED:
         return rt_any_to_i64(a) == rt_any_to_i64(b);
     case RT_KIND_UNSIGNED:
@@ -110,6 +107,6 @@ b32 rt_any_equals(struct rt_any a, struct rt_any b) {
     case RT_KIND_FUNC:
         // TODO: func equality?
     default:
-        return FALSE;
+        return false;
     }
 }

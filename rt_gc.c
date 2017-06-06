@@ -35,15 +35,15 @@ static void rt_gc_mark_struct(struct rt_thread_ctx *ctx, char *ptr, struct rt_ty
     }
 }
 
-static b32 rt_gc_type_needs_scan(struct rt_type *type) {
+static bool rt_gc_type_needs_scan(struct rt_type *type) {
     switch (type->kind) {
     case RT_KIND_BOOL:
     case RT_KIND_SIGNED:
     case RT_KIND_UNSIGNED:
     case RT_KIND_REAL:
-        return FALSE;
+        return false;
     default:
-        return TRUE;
+        return true;
     }
 }
 

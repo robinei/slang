@@ -87,24 +87,29 @@ struct rt_fun_param {
 
 struct rt_any {
     struct rt_type *type;
+
     union {
         uintptr_t data;
+        
         void *ptr;
         struct rt_cons *cons;
         struct rt_string *string;
         struct rt_symbol *symbol;
+        
         u8 u8;
         u16 u16;
         u32 u32;
         u64 u64;
+        
         i8 i8;
         i16 i16;
         i32 i32;
         i64 i64;
+
         f32 f32;
         f64 f64;
-        b8 b8;
-        b32 b32;
+        
+        bool _bool;
     } u;
 };
 
@@ -166,8 +171,7 @@ struct rt_symbol_index {
     struct rt_any f32;
     struct rt_any f64;
 
-    struct rt_any b8;
-    struct rt_any b32;
+    struct rt_any _bool;
 };
 
 struct rt_type_index {
@@ -196,8 +200,7 @@ struct rt_type_index {
     struct rt_type *f32;
     struct rt_type *f64;
 
-    struct rt_type *b8;
-    struct rt_type *b32;
+    struct rt_type *_bool;
 
     struct rt_type *cons;
     struct rt_type *boxed_cons;
@@ -227,14 +230,14 @@ struct rt_type *rt_gettype_array(struct rt_type *elem_type, rt_size_t length);
 struct rt_type *rt_gettype_boxed_array(struct rt_type *elem_type, rt_size_t length);
 struct rt_type *rt_gettype_struct(rt_size_t size, u32 field_count, struct rt_struct_field *fields);
 
-b32 rt_any_to_b32(struct rt_any a);
+bool rt_any_to_bool(struct rt_any a);
 f64 rt_any_to_f64(struct rt_any a);
 u64 rt_any_to_u64(struct rt_any a);
 i64 rt_any_to_i64(struct rt_any a);
 struct rt_any rt_weak_any(struct rt_any any);
 struct rt_any rt_any_to_signed(struct rt_any a);
 struct rt_any rt_any_to_unsigned(struct rt_any a);
-b32 rt_any_equals(struct rt_any a, struct rt_any b);
+bool rt_any_equals(struct rt_any a, struct rt_any b);
 
 #define rt_any_is_nil(any) (!(any).type || ((any).type == rt_types.boxed_cons && !(any).u.ptr))
 #define rt_any_is_cons(any) ((any).type == rt_types.boxed_cons && (any).u.ptr)
@@ -252,33 +255,35 @@ void rt_print(struct rt_any any);
 struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any parent_form, struct rt_any form);
 
 
-#define RT_DEF_SCALAR(name, kind) \
-    static struct rt_any rt_new_##name(name value) { \
+#define RT_DEF_SCALAR_FULL(typ, name, propername, kind) \
+    static struct rt_any rt_new_##propername(typ value) { \
         struct rt_any any; \
         any.type = rt_types.name; \
         any.u.name = value; \
         return any; \
     } \
-    struct rt_array_##name { \
+    struct rt_array_##propername { \
         rt_size_t length; \
-        name data[7]; \
+        typ data[]; \
     };
 
-RT_DEF_SCALAR(i8, RT_KIND_SIGNED)
-RT_DEF_SCALAR(i16, RT_KIND_SIGNED)
-RT_DEF_SCALAR(i32, RT_KIND_SIGNED)
-RT_DEF_SCALAR(i64, RT_KIND_SIGNED)
+#define RT_DEF_SCALAR(typ, kind) \
+    RT_DEF_SCALAR_FULL(typ, typ, typ, kind)
 
 RT_DEF_SCALAR(u8, RT_KIND_UNSIGNED)
 RT_DEF_SCALAR(u16, RT_KIND_UNSIGNED)
 RT_DEF_SCALAR(u32, RT_KIND_UNSIGNED)
 RT_DEF_SCALAR(u64, RT_KIND_UNSIGNED)
 
+RT_DEF_SCALAR(i8, RT_KIND_SIGNED)
+RT_DEF_SCALAR(i16, RT_KIND_SIGNED)
+RT_DEF_SCALAR(i32, RT_KIND_SIGNED)
+RT_DEF_SCALAR(i64, RT_KIND_SIGNED)
+
 RT_DEF_SCALAR(f32, RT_KIND_REAL)
 RT_DEF_SCALAR(f64, RT_KIND_REAL)
 
-RT_DEF_SCALAR(b8, RT_KIND_BOOL)
-RT_DEF_SCALAR(b32, RT_KIND_BOOL)
+RT_DEF_SCALAR_FULL(bool, _bool, bool, RT_KIND_BOOL)
 
 
 void rt_init_types();

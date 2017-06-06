@@ -2,6 +2,7 @@
 #define TYPES_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -15,11 +16,5 @@ typedef int64_t i64;
 
 typedef float f32;
 typedef double f64;
-
-enum { FALSE, TRUE };
-
-/* boolean */
-typedef u8 b8;
-typedef u32 b32;
 
 #endif
