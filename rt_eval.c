@@ -7,13 +7,12 @@
 
 #include "hashtable.h"
 
-DECL_HASH_TABLE(valuemap, const char *, struct rt_any)
-IMPL_HASH_TABLE(valuemap, const char *, struct rt_any, hashutil_str_hash, hashutil_str_equals)
+IMPL_HASH_TABLE(rt_symbolmap, struct rt_symbol *, struct rt_astnode *, hashutil_ptr_hash, hashutil_ptr_equals)
 
 
 struct eval_state {
     struct rt_thread_ctx *ctx;
-    struct valuemap globals;
+    struct rt_module *mod;
 };
 
 static void eval_error(struct rt_astnode *node, const char *fmt, ...) {
@@ -29,24 +28,18 @@ static void eval_error(struct rt_astnode *node, const char *fmt, ...) {
 static struct rt_any rt_ast_eval_expr(struct eval_state *state, struct rt_astnode *node) {
     struct rt_any result = rt_nil;
     switch (node->node_type) {
-    case RT_ASTNODE_FUNC:
+    case RT_ASTNODE_LITERAL:
+        result = node->const_value;
+        break;
     case RT_ASTNODE_SCOPE:
     case RT_ASTNODE_BLOCK:
         for (u32 i = 0; i < node->u.block.expr_count; ++i) {
             result = rt_ast_eval_expr(state, node->u.block.exprs[i]);
         }
         break;
-    case RT_ASTNODE_LITERAL: {
-        result = node->u.literal.value;
+    case RT_ASTNODE_GET:
         break;
-    }
-    case RT_ASTNODE_GET_LOCAL:
-    case RT_ASTNODE_SET_LOCAL:
-    case RT_ASTNODE_GET_CONST_GLOBAL:
-        valuemap_get(&state->globals, node->u.get_const_global.name, &result);
-        break;
-    case RT_ASTNODE_DEF_CONST_GLOBAL:
-        eval_error(node, "can only define globals at toplevel");
+    case RT_ASTNODE_SET:
         break;
     case RT_ASTNODE_COND: {
         struct rt_any pred_result = rt_ast_eval_expr(state, node->u.cond.pred_expr);
@@ -96,19 +89,22 @@ static struct rt_any rt_ast_eval_toplevel(struct eval_state *state, struct rt_as
             result = rt_ast_eval_toplevel(state, node->u.block.exprs[i]);
         }
         break;
-    case RT_ASTNODE_GET_CONST_GLOBAL:
-        if (!valuemap_get(&state->globals, node->u.get_const_global.name, &result)) {
-            eval_error(node, "no toplevel item with name '%s' found", node->u.get_const_global.name);
+    case RT_ASTNODE_GET: {
+        struct rt_astnode *temp;
+        if (!rt_symbolmap_get(&state->mod->symbolmap, node->u.get.name, &temp)) {
+            eval_error(node, "no toplevel item with name '%s' found", node->u.get.name);
         }
+        result = temp->const_value;
         break;
-    case RT_ASTNODE_DEF_CONST_GLOBAL: {
-        struct rt_any dummy;
-        if (valuemap_get(&state->globals, node->u.set_const_global.name, &dummy)) {
-            eval_error(node, "redefinition of already defined toplevel name: %s", node->u.set_const_global.name);
+    }
+    case RT_ASTNODE_SET: {
+        struct rt_astnode *dummy;
+        if (rt_symbolmap_get(&state->mod->symbolmap, node->u.set.name, &dummy)) {
+            eval_error(node, "redefinition of already defined toplevel name: %s", node->u.set.name);
             break;
         }
-        result = rt_ast_eval_expr(state, node->u.set_const_global.expr);
-        valuemap_put(&state->globals, node->u.set_const_global.name, result);
+        result = rt_ast_eval_expr(state, node->u.set.expr);
+        //rt_sourcemap_put(&state->globals, node->u.set.name, result);
         break;
     }
     default:

@@ -135,14 +135,6 @@ struct rt_weakptr_entry {
     struct rt_type *type;
 };
 
-struct rt_sourceloc {
-    u32 line;
-    u32 col;
-};
-
-/* map from cons address to source location */
-DECL_HASH_TABLE(rt_sourcemap, struct rt_cons *, struct rt_sourceloc)
-
 struct rt_thread_ctx {
     /* array of pointers to active roots. used for GC mark phase.
        the first element is actually a pointer to another root array, so this
@@ -161,7 +153,8 @@ struct rt_thread_ctx {
     u32 max_weakptrs;
     struct rt_weakptr_entry *weakptrs;
 
-    struct rt_sourcemap sourcemap;
+    /* will be set when compiling a module */
+    struct rt_module *current_module;
 };
 
 struct rt_symbol_index {
@@ -339,41 +332,50 @@ struct rt_func {
 
 
 
+struct rt_sourceloc {
+    u32 line;
+    u32 col;
+};
+
+/* map from cons address to source location */
+DECL_HASH_TABLE(rt_sourcemap, struct rt_cons *, struct rt_sourceloc)
+
+DECL_HASH_TABLE(rt_symbolmap, struct rt_symbol *, struct rt_astnode *)
+
+struct rt_module {
+    struct rt_sourcemap sourcemap;
+    struct rt_symbolmap symbolmap;
+};
+
+
 enum rt_astnode_type {
-    RT_ASTNODE_FUNC,
+    RT_ASTNODE_LITERAL,
     RT_ASTNODE_SCOPE,
     RT_ASTNODE_BLOCK,
-    RT_ASTNODE_LITERAL,
-    RT_ASTNODE_GET_LOCAL,
-    RT_ASTNODE_SET_LOCAL,
-    RT_ASTNODE_GET_CONST_GLOBAL,
-    RT_ASTNODE_DEF_CONST_GLOBAL,
+    RT_ASTNODE_GET,
+    RT_ASTNODE_SET,
     RT_ASTNODE_COND,
     RT_ASTNODE_LOOP,
     RT_ASTNODE_CALL,
 };
 
-struct rt_scope_slot {
+struct rt_scope_var {
     struct rt_type *type;
     const char *name;
 };
 
 struct rt_astnode {
     enum rt_astnode_type node_type;
-    struct rt_type *result_type;
-    struct rt_astnode *parent_scope;
     struct rt_sourceloc sourceloc;
+    struct rt_astnode *parent_scope;
+    struct rt_type *result_type;
+    struct rt_any const_value;
+    bool is_const;
 
     union {
         struct {
-            const char *name;
-            struct rt_astnode *scope_expr;
-        } func;
-
-        struct {
-            u32 slot_count;
-            struct rt_scope_slot *slots;
-            struct rt_astnode *child_scope;
+            u32 var_count;
+            struct rt_scope_var *vars;
             struct rt_astnode *expr;
         } scope;
 
@@ -383,26 +385,13 @@ struct rt_astnode {
         } block;
 
         struct {
-            struct rt_any value;
-        } literal;
+            struct rt_symbol *name;
+        } get;
 
         struct {
-            const char *name;
-        } get_local;
-
-        struct {
-            const char *name;
+            struct rt_symbol *name;
             struct rt_astnode *expr;
-        } set_local;
-
-        struct {
-            const char *name;
-        } get_const_global;
-
-        struct {
-            const char *name;
-            struct rt_astnode *expr;
-        } set_const_global;
+        } set;
 
         struct {
             struct rt_astnode *pred_expr;

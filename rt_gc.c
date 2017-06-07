@@ -171,10 +171,13 @@ void rt_gc_run(struct rt_thread_ctx *ctx) {
     }
 
     /* TODO: make hash table play nice with GC so we don't have to mark the keys manually */
-    for (u32 i = 0; i < ctx->sourcemap.size; ++i) {
-        struct rt_sourcemap_entry *e = ctx->sourcemap.entries + i;
-        if (e->hash) {
-            rt_gc_mark_single(ctx, (char *)&e->key, rt_types.boxed_cons);
+    struct rt_module *module = ctx->current_module;
+    if (module) {
+        for (u32 i = 0; i < module->sourcemap.size; ++i) {
+            struct rt_sourcemap_entry *e = module->sourcemap.entries + i;
+            if (e->hash) {
+                rt_gc_mark_single(ctx, (char *)&e->key, rt_types.boxed_cons);
+            }
         }
     }
 
@@ -209,10 +212,12 @@ void rt_gc_run(struct rt_thread_ctx *ctx) {
     }
 
     /* free unreachable boxes. could be done on another thread */
+    u32 free_count = 0;
     while (unreachable) {
         struct rt_box *box = unreachable;
         unreachable = rt_boxheader_get_next(box->header);
-        printf("freeing 1 object\n");
         free(box);
+        ++free_count;
     }
+    printf("freed %d object(s)\n", free_count);
 }

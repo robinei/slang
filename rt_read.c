@@ -47,6 +47,7 @@ static bool is_symchar(char ch) {
 
 struct reader_state {
     struct rt_thread_ctx *ctx;
+    struct rt_module *mod;
 
     const char *text;
     u32 pos;
@@ -254,8 +255,10 @@ static struct rt_any read_list(struct reader_state *state, char end) {
     struct rt_sourceloc orig_loc = state->loc;
     struct rt_any form = read_form(state);
     struct rt_any result = rt_new_cons(state->ctx, form, read_list(state, end));
-    // store location of all car forms, using the containing cons as key
-    rt_sourcemap_put(&state->ctx->sourcemap, result.u.ptr, orig_loc);
+    if (state->mod) {
+        // store location of all car forms, using the containing cons as key
+        rt_sourcemap_put(&state->mod->sourcemap, result.u.ptr, orig_loc);
+    }
     return result;
 }
 
@@ -303,7 +306,7 @@ static struct rt_any read_form(struct reader_state *state) {
             step(state);
             skip_space(state);
             struct rt_any sym = read_symbol(state);
-            result = rt_new_cons(ctx, rt_get_symbol("prop"), rt_new_cons(ctx, sym, rt_new_cons(ctx, result, rt_nil)));
+            result = rt_new_cons(ctx, rt_get_symbol("."), rt_new_cons(ctx, sym, rt_new_cons(ctx, result, rt_nil)));
         } else if (ch == '[') {
             step(state);
             struct rt_any list = read_list(state, ']');
@@ -315,7 +318,7 @@ static struct rt_any read_form(struct reader_state *state) {
     if (ch == ':') {
         step(state);
         struct rt_any typeform = read_form(state);
-        result = rt_new_cons(ctx, rt_get_symbol("ascribe"), rt_new_cons(ctx, result, rt_new_cons(ctx, typeform, rt_nil)));
+        result = rt_new_cons(ctx, rt_get_symbol(":"), rt_new_cons(ctx, result, rt_new_cons(ctx, typeform, rt_nil)));
     }
     return result;
 }

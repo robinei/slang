@@ -6,6 +6,7 @@
 
 int main(int argc, char *argv[]) {
     struct rt_thread_ctx ctx = {0,};
+    struct rt_module mod = {0,};
 
     rt_init_types();
 
@@ -38,6 +39,9 @@ int main(int argc, char *argv[]) {
     struct rt_type *type = rt_parse_type(&ctx, parent_form, rt_car(parent_form.u.ptr));
     printf("type desc: %s\n", type->desc);
 
+    struct rt_any input_form = rt_read(&ctx, "(fun test (x:u32 y:cons) (+ x[0] y.car))");
+    rt_print(input_form); printf("\n");
+
     rt_print(arr); printf("\n");
 
     struct rt_type *types[4] = { rt_types.any, rt_types.any, rt_types.any, NULL };
@@ -66,7 +70,7 @@ int main(int argc, char *argv[]) {
 
     printf("-\n");
 
-    rt_sourcemap_clear(&ctx.sourcemap);
+    rt_sourcemap_clear(&mod.sourcemap);
     rt_gc_run(&ctx);
 }
 

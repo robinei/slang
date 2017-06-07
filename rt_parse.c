@@ -6,11 +6,15 @@
 
 struct parse_state {
     struct rt_thread_ctx *ctx;
+    struct rt_module *mod;
 };
 
 static void parse_error(struct rt_thread_ctx *ctx, struct rt_any form, const char *fmt, ...) {
     struct rt_sourceloc loc;
-    if (rt_any_is_cons(form) && rt_sourcemap_get(&ctx->sourcemap, form.u.cons, &loc)) {
+    if (rt_any_is_cons(form) &&
+        ctx->current_module &&
+         rt_sourcemap_get(&ctx->current_module->sourcemap, form.u.cons, &loc))
+    {
         printf("line %d, col %d: ", loc.line + 1, loc.col + 1);
     } else {
         printf("line ?, col ?: ");
@@ -79,4 +83,9 @@ struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any valid_con
 
     parse_error(ctx, cons1, "unrecognized type: %s", ((struct rt_symbol *)form.u.ptr)->data);
     return NULL;
+}
+
+
+void parse_toplevel(struct parse_state *state) {
+
 }
