@@ -38,6 +38,27 @@ enum {
     RT_TYPE_FLAG_WEAK_PTR = 1 << 0,
 };
 
+#define RT_FOREACH_SCALAR_TYPE(X) \
+    X(u8, u8, u8, RT_KIND_UNSIGNED, 0) \
+    X(u16, u16, u16, RT_KIND_UNSIGNED, 0) \
+    X(u32, u32, u32, RT_KIND_UNSIGNED, 0) \
+    X(u64, u64, u64, RT_KIND_UNSIGNED, 0) \
+    \
+    X(i8, i8, i8, RT_KIND_SIGNED, 0) \
+    X(i16, i16, i16, RT_KIND_SIGNED, 0) \
+    X(i32, i32, i32, RT_KIND_SIGNED, 0) \
+    X(i64, i64, i64, RT_KIND_SIGNED, 0) \
+    \
+    X(f32, f32, f32, RT_KIND_REAL, 0) \
+    X(f64, f64, f64, RT_KIND_REAL, 0) \
+    \
+    X(bool, _bool, bool, RT_KIND_BOOL, 0)
+
+#define RT_FOREACH_SIMPLE_TYPE(X) \
+    X(struct rt_any, any, any, RT_KIND_ANY, 0) \
+    X(void *, nil, nil, RT_KIND_NIL, 0) \
+    RT_FOREACH_SCALAR_TYPE(X)
+
 struct rt_type {
     enum rt_kind kind;
     u32 flags;
@@ -90,6 +111,10 @@ struct rt_fun_param {
     const char *name;
 };
 
+
+#define RT_DEF_SCALAR_ANY_MEMBER(Type, VarName, ProperName, Kind, Flags) \
+    Type VarName;
+
 struct rt_any {
     /* non't use directly as it can be NULL which should mean the type is rt_types.nil */
     struct rt_type *_type;
@@ -102,20 +127,7 @@ struct rt_any {
         struct rt_string *string;
         struct rt_symbol *symbol;
         
-        u8 u8;
-        u16 u16;
-        u32 u32;
-        u64 u64;
-        
-        i8 i8;
-        i16 i16;
-        i32 i32;
-        i64 i64;
-
-        f32 f32;
-        f64 f64;
-        
-        bool _bool;
+        RT_FOREACH_SCALAR_TYPE(RT_DEF_SCALAR_ANY_MEMBER)
     } u;
 };
 
@@ -157,25 +169,17 @@ struct rt_thread_ctx {
     struct rt_module *current_module;
 };
 
+
+#define RT_DEF_TYPE_SYMBOL(Type, VarName, ProperName, Kind, Flags) \
+    struct rt_any VarName;
+
 struct rt_symbol_index {
-    struct rt_any any;
-    struct rt_any nil;
-
-    struct rt_any u8;
-    struct rt_any u16;
-    struct rt_any u32;
-    struct rt_any u64;
-
-    struct rt_any i8;
-    struct rt_any i16;
-    struct rt_any i32;
-    struct rt_any i64;
-
-    struct rt_any f32;
-    struct rt_any f64;
-
-    struct rt_any _bool;
+    RT_FOREACH_SIMPLE_TYPE(RT_DEF_TYPE_SYMBOL)
 };
+
+
+#define RT_DEF_TYPE_VAR(Type, VarName, ProperName, Kind, Flags) \
+    struct rt_type *VarName;
 
 struct rt_type_index {
     /* for lookup and "uniquification" */
@@ -188,23 +192,7 @@ struct rt_type_index {
 
     /* type shorthands */
 
-    struct rt_type *any;
-    struct rt_type *nil;
-    
-    struct rt_type *u8;
-    struct rt_type *u16;
-    struct rt_type *u32;
-    struct rt_type *u64;
-
-    struct rt_type *i8;
-    struct rt_type *i16;
-    struct rt_type *i32;
-    struct rt_type *i64;
-
-    struct rt_type *f32;
-    struct rt_type *f64;
-
-    struct rt_type *_bool;
+    RT_FOREACH_SIMPLE_TYPE(RT_DEF_TYPE_VAR)
 
     struct rt_type *cons;
     struct rt_type *boxed_cons;
@@ -270,31 +258,12 @@ void rt_print(struct rt_any any);
 struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any parent_form, struct rt_any form);
 
 
-#define RT_DEF_SCALAR_FULL(type, name, propername, kind) \
-    static struct rt_any rt_new_##propername(type value) { \
-        struct rt_any any; \
-        any._type = rt_types.name; \
-        any.u.name = value; \
-        return any; \
+#define RT_DEF_SCALAR_MAKER(Type, VarName, ProperName, Kind, Flags) \
+    static struct rt_any rt_new_##ProperName(Type value) { \
+        return (struct rt_any) { rt_types.VarName, { .VarName = value } }; \
     }
 
-#define RT_DEF_SCALAR(typ, kind) \
-    RT_DEF_SCALAR_FULL(typ, typ, typ, kind)
-
-RT_DEF_SCALAR(u8, RT_KIND_UNSIGNED)
-RT_DEF_SCALAR(u16, RT_KIND_UNSIGNED)
-RT_DEF_SCALAR(u32, RT_KIND_UNSIGNED)
-RT_DEF_SCALAR(u64, RT_KIND_UNSIGNED)
-
-RT_DEF_SCALAR(i8, RT_KIND_SIGNED)
-RT_DEF_SCALAR(i16, RT_KIND_SIGNED)
-RT_DEF_SCALAR(i32, RT_KIND_SIGNED)
-RT_DEF_SCALAR(i64, RT_KIND_SIGNED)
-
-RT_DEF_SCALAR(f32, RT_KIND_REAL)
-RT_DEF_SCALAR(f64, RT_KIND_REAL)
-
-RT_DEF_SCALAR_FULL(bool, _bool, bool, RT_KIND_BOOL)
+RT_FOREACH_SCALAR_TYPE(RT_DEF_SCALAR_MAKER)
 
 
 void rt_init_types();

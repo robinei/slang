@@ -16,13 +16,12 @@ IMPL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *, hashutil_ptr_hash
 static struct typemap typemap;
 
 
-#define DEF_SIMPLE_TYPE_FULL(Type, Name, ProperName, Kind) \
-    rt_symbols.Name = rt_get_symbol(#ProperName); \
-    rt_types.Name = rt_gettype_simple(Kind, sizeof(Type)); \
-    typemap_put(&typemap, rt_symbols.Name.u.symbol, rt_types.Name);
 
-#define DEF_SIMPLE_TYPE(Type, Name, Kind) \
-    DEF_SIMPLE_TYPE_FULL(Type, Name, Name, Kind)
+#define RT_DEF_TYPE_INIT(Type, VarName, ProperName, Kind, Flags) \
+    rt_symbols.VarName = rt_get_symbol(#ProperName); \
+    rt_types.VarName = rt_gettype_simple(Kind, sizeof(Type)); \
+    typemap_put(&typemap, rt_symbols.VarName.u.symbol, rt_types.VarName);
+
 
 void rt_init_types() {
     /* string embeds a char array, "subtyping" it, and therefore has identical memory layout */
@@ -35,23 +34,7 @@ void rt_init_types() {
     rt_types.symbol = rt_gettype_struct("symbol", 0, 1, symbol_fields);
     rt_types.ptr_symbol = rt_gettype_ptr(rt_types.symbol);
 
-    DEF_SIMPLE_TYPE(struct rt_any, any, RT_KIND_ANY);
-    DEF_SIMPLE_TYPE(void *, nil, RT_KIND_NIL);
-
-    DEF_SIMPLE_TYPE(u8, u8, RT_KIND_UNSIGNED);
-    DEF_SIMPLE_TYPE(u16, u16, RT_KIND_UNSIGNED);
-    DEF_SIMPLE_TYPE(u32, u32, RT_KIND_UNSIGNED);
-    DEF_SIMPLE_TYPE(u64, u64, RT_KIND_UNSIGNED);
-
-    DEF_SIMPLE_TYPE(i8, i8, RT_KIND_SIGNED);
-    DEF_SIMPLE_TYPE(i16, i16, RT_KIND_SIGNED);
-    DEF_SIMPLE_TYPE(i32, i32, RT_KIND_SIGNED);
-    DEF_SIMPLE_TYPE(i64, i64, RT_KIND_SIGNED);
-
-    DEF_SIMPLE_TYPE(f32, f32, RT_KIND_REAL);
-    DEF_SIMPLE_TYPE(f64, f64, RT_KIND_REAL);
-
-    DEF_SIMPLE_TYPE_FULL(bool, _bool, "bool", RT_KIND_BOOL);
+    RT_FOREACH_SIMPLE_TYPE(RT_DEF_TYPE_INIT)
 
     struct rt_struct_field cons_fields[2] = {
         { rt_types.any, "car", offsetof(struct rt_cons, car) },
