@@ -5,16 +5,46 @@
 #include <string.h>
 #include <inttypes.h>
 
+void rt_gettype_free_all() {
+    struct rt_type *type = rt_types.types_all;
+    while (type) {
+        struct rt_type *next = type->all_list_next;
+
+        if (type->kind == RT_KIND_STRUCT) {
+            free(type->u._struct.fields);
+        }
+        free((char *)type->desc);
+        free(type);
+
+        type = next;
+    }
+
+    rt_types.types_all = NULL;
+    rt_types.types_simple = NULL;
+    rt_types.types_ptr = NULL;
+    rt_types.types_boxptr = NULL;
+    rt_types.types_weakptr = NULL;
+    rt_types.types_array = NULL;
+    rt_types.types_struct = NULL;
+}
+
+static const char *copy_string(const char *str) {
+    u32 len = strlen(str);
+    char *newstr = malloc(len + 1);
+    memcpy(newstr, str, len + 1);
+    return newstr;
+}
+
 static const char *type_to_string(struct rt_type *type) {
     char buffer[1024];
     u32 len = 0;
     if (!type) {
-        return "nil";
+        return copy_string("nil");
     }
     buffer[0] = 0;
     switch (type->kind) {
-    case RT_KIND_ANY: return "any";
-    case RT_KIND_NIL: return "nil";
+    case RT_KIND_ANY: return copy_string("any");
+    case RT_KIND_NIL: return copy_string("nil");
     case RT_KIND_PTR:
         len = snprintf(buffer, sizeof(buffer), "ptr[%s]", type->u.ptr.target_type->desc);
         break;
@@ -32,33 +62,33 @@ static const char *type_to_string(struct rt_type *type) {
             len = snprintf(buffer, sizeof(buffer), "array[%s]", type->u.array.elem_type->desc);
         }
         break;
-    case RT_KIND_BOOL: return "bool";
+    case RT_KIND_BOOL: return copy_string("bool");
     case RT_KIND_SIGNED:
         switch (type->size) {
-        case 1: return "i8";
-        case 2: return "i16";
-        case 4: return "i32";
-        case 8: return "i64";
+        case 1: return copy_string("i8");
+        case 2: return copy_string("i16");
+        case 4: return copy_string("i32");
+        case 8: return copy_string("i64");
         }
         break;
     case RT_KIND_UNSIGNED:
         switch (type->size) {
-        case 1: return "u8";
-        case 2: return "u16";
-        case 4: return "u32";
-        case 8: return "u64";
+        case 1: return copy_string("u8");
+        case 2: return copy_string("u16");
+        case 4: return copy_string("u32");
+        case 8: return copy_string("u64");
         }
         break;
     case RT_KIND_REAL:
         switch (type->size) {
-        case 4: return "f32";
-        case 8: return "f64";
+        case 4: return copy_string("f32");
+        case 8: return copy_string("f64");
         }
         break;
     case RT_KIND_FUNC:
-        return "func";
+        return copy_string("func");
     case RT_KIND_TYPE:
-        return "type";
+        return copy_string("type");
     }
     if (len) {
         if (len >= sizeof(buffer)) {
@@ -71,6 +101,21 @@ static const char *type_to_string(struct rt_type *type) {
     assert(0 && "type not handled");
 }
 
+
+static struct rt_type *make_type(enum rt_kind kind, rt_size_t size, struct rt_type **list_head) {
+    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
+    new_type->kind = kind;
+    new_type->size = size;
+
+    new_type->next = *list_head;
+    *list_head = new_type;
+    
+    new_type->all_list_next = rt_types.types_all;
+    rt_types.types_all = new_type;
+    
+    return new_type;
+}
+
 struct rt_type *rt_gettype_simple(enum rt_kind kind, rt_size_t size) {
     struct rt_type *existing = rt_types.types_simple;
     while (existing) {
@@ -79,12 +124,8 @@ struct rt_type *rt_gettype_simple(enum rt_kind kind, rt_size_t size) {
         }
         existing = existing->next;
     }
-    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
-    new_type->kind = kind;
-    new_type->size = size;
+    struct rt_type *new_type = make_type(kind, size, &rt_types.types_simple);
     new_type->desc = type_to_string(new_type);
-    new_type->next = rt_types.types_simple;
-    rt_types.types_simple = new_type;
     return new_type;
 }
 
@@ -96,13 +137,9 @@ struct rt_type *rt_gettype_ptr(struct rt_type *target_type) {
         }
         existing = existing->next;
     }
-    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
-    new_type->kind = RT_KIND_PTR;
-    new_type->size = sizeof(void *);
+    struct rt_type *new_type = make_type(RT_KIND_PTR, sizeof(void *), &rt_types.types_ptr);
     new_type->u.ptr.target_type = target_type;
     new_type->desc = type_to_string(new_type);
-    new_type->next = rt_types.types_ptr;
-    rt_types.types_ptr = new_type;
     return new_type;
 }
 
@@ -116,15 +153,11 @@ struct rt_type *rt_gettype_boxptr(struct rt_type *target_type, struct rt_type *b
         }
         existing = existing->next;
     }
-    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
-    new_type->kind = RT_KIND_PTR;
-    new_type->size = sizeof(void *);
+    struct rt_type *new_type = make_type(RT_KIND_PTR, sizeof(void *), &rt_types.types_boxptr);
     new_type->u.ptr.target_type = target_type;
     new_type->u.ptr.box_type = box_type;
     new_type->u.ptr.box_offset = box_offset;
     new_type->desc = type_to_string(new_type);
-    new_type->next = rt_types.types_boxptr;
-    rt_types.types_boxptr = new_type;
     return new_type;
 }
 
@@ -147,16 +180,12 @@ struct rt_type *rt_gettype_weak(struct rt_type *ptr_type) {
         }
         existing = existing->next;
     }
-    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
-    new_type->kind = RT_KIND_PTR;
+    struct rt_type *new_type = make_type(RT_KIND_PTR, sizeof(void *), &rt_types.types_weakptr);
     new_type->flags = RT_TYPE_FLAG_WEAK_PTR;
-    new_type->size = sizeof(void *);
     new_type->u.ptr.target_type = ptr_type->u.ptr.target_type;
     new_type->u.ptr.box_type = ptr_type->u.ptr.box_type;
     new_type->u.ptr.box_offset = ptr_type->u.ptr.box_offset;
     new_type->desc = type_to_string(new_type);
-    new_type->next = rt_types.types_weakptr;
-    rt_types.types_weakptr = new_type;
     return new_type;
 }
 
@@ -174,13 +203,9 @@ struct rt_type *rt_gettype_array(struct rt_type *elem_type, rt_size_t length) {
         }
         existing = existing->next;
     }
-    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
-    new_type->kind = RT_KIND_ARRAY;
-    new_type->size = size;
+    struct rt_type *new_type = make_type(RT_KIND_ARRAY, size, &rt_types.types_array);
     new_type->u.array.elem_type = elem_type;
     new_type->desc = type_to_string(new_type);
-    new_type->next = rt_types.types_array;
-    rt_types.types_array = new_type;
     return new_type;
 }
 
@@ -224,14 +249,11 @@ struct rt_type *rt_gettype_struct(const char *name, rt_size_t size, u32 field_co
 #endif
     struct rt_struct_field *new_fields = malloc(sizeof(struct rt_struct_field) * field_count);
     memcpy(new_fields, fields, sizeof(struct rt_struct_field) * field_count);
-    struct rt_type *new_type = calloc(1, sizeof(struct rt_type));
-    new_type->kind = RT_KIND_STRUCT;
-    new_type->size = size;
+
+    struct rt_type *new_type = make_type(RT_KIND_STRUCT, size, &rt_types.types_struct);
     new_type->u._struct.name = name; // TODO: copy?
     new_type->u._struct.field_count = field_count;
     new_type->u._struct.fields = new_fields;
     new_type->desc = type_to_string(new_type);
-    new_type->next = rt_types.types_struct;
-    rt_types.types_struct = new_type;
     return new_type;
 }

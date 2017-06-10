@@ -20,6 +20,7 @@ static void free_func(void *userdata, void *ptr) {
         data->freed = realloc(data->freed, sizeof(void *) * data->max_freed);
     }
     data->freed[data->num_freed++] = (char *)ptr + sizeof(struct rt_box);
+    free(ptr);
 }
 
 static void setup(struct test_context *tc) {
@@ -33,6 +34,8 @@ static void setup(struct test_context *tc) {
 }
 
 static void teardown(struct test_context *tc) {
+    struct suite_data *data = tc->suite_data;
+    rt_thread_ctx_cleanup(&data->ctx);
 }
 
 
@@ -58,7 +61,7 @@ static void require_that_simple_referenced_is_not_collected(struct test_context 
 
 TEST_SUITE_BEGIN(gc_test_suite, setup, teardown)
 {
-    rt_init_types();
+    rt_init();
     struct suite_data *data = calloc(1, sizeof(struct suite_data));
     data->typelist_any = calloc(1, sizeof(void *) * 2);
     data->typelist_any[0] = rt_types.any;
@@ -68,8 +71,10 @@ TEST_SUITE_TEST(require_that_simple_unreferenced_is_collected)
 TEST_SUITE_TEST(require_that_simple_referenced_is_not_collected)
 {
     struct suite_data *data = tc->suite_data;
+    rt_thread_ctx_cleanup(&data->ctx);
     free(data->typelist_any);
     free(data->freed);
     free(data);
+    rt_cleanup();
 }
 TEST_SUITE_END()

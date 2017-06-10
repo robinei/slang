@@ -72,6 +72,7 @@ struct rt_type {
 
     /* for chaining types in type tables */
     struct rt_type *next;
+    struct rt_type *all_list_next;
 
     union {
         struct {
@@ -185,6 +186,9 @@ struct rt_symbol_index {
     struct rt_type *VarName;
 
 struct rt_type_index {
+    /* just to be able to free the all */
+    struct rt_type *types_all;
+
     /* for lookup and "uniquification" */
     struct rt_type *types_simple;
     struct rt_type *types_ptr;
@@ -214,6 +218,10 @@ extern struct rt_type_index rt_types;
 /* nil har NULL type and ptr/data. not ideal, but worth it to make 0-inited any values be nil */
 extern struct rt_any rt_nil;
 
+
+void rt_init(void);
+void rt_cleanup(void);
+void rt_thread_ctx_cleanup(struct rt_thread_ctx *ctx);
 
 struct rt_type *rt_gettype_simple(enum rt_kind kind, rt_size_t size);
 struct rt_type *rt_gettype_ptr(struct rt_type *target_type);
@@ -269,7 +277,6 @@ struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any parent_fo
 RT_FOREACH_SCALAR_TYPE(RT_DEF_SCALAR_MAKER)
 
 
-void rt_init_types();
 struct rt_type *rt_lookup_simple_type(struct rt_any sym);
 struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct rt_any cdr);
 struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct rt_type *ptr_type);

@@ -60,7 +60,9 @@ static uint32_t hashutil_dist_to_start(uint32_t table_size, uint32_t hash, uint3
     void name##_clear(struct name *table);                      \
     int name##_remove(struct name *table, key_type key);        \
     int name##_get(struct name *table, key_type key, value_type *value_out); \
-    void name##_put(struct name *table, key_type key, value_type value);
+    void name##_put(struct name *table, key_type key, value_type value); \
+    void name##_init(struct name *table, uint32_t initial_size); \
+    void name##_free(struct name *table);
 
 #define IMPL_HASH_TABLE(name, key_type, value_type, key_hasher, key_equals) \
     void name##_clear(struct name *table) {                             \

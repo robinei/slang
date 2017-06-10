@@ -13,7 +13,7 @@ set(RuntimeSources
     rt_primops.c
     rt_print.c
     rt_read.c
-    rt_types.c
+    rt.c
     strtod.c
     strtoll.c
     )

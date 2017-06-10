@@ -4,6 +4,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+void rt_gc_free_all(struct rt_thread_ctx *ctx);
+void rt_gettype_free_all();
+
+
 struct rt_symbol_index rt_symbols;
 struct rt_type_index rt_types;
 
@@ -13,8 +17,15 @@ struct rt_any rt_nil;
 DECL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *)
 IMPL_HASH_TABLE(typemap, struct rt_symbol *, struct rt_type *, hashutil_ptr_hash, hashutil_ptr_equals)
 
+/* TODO: add locking around typemap access if threading becomes a thing */
 static struct typemap typemap;
 
+
+DECL_HASH_TABLE(symtab, const char *, struct rt_symbol *)
+IMPL_HASH_TABLE(symtab, const char *, struct rt_symbol *, hashutil_str_hash, hashutil_str_equals)
+
+/* TODO: add locking around symtab access if threading becomes a thing */
+static struct symtab symtab;
 
 
 #define RT_DEF_TYPE_INIT(Type, VarName, ProperName, Kind, Flags) \
@@ -23,7 +34,7 @@ static struct typemap typemap;
     typemap_put(&typemap, rt_symbols.VarName.u.symbol, rt_types.VarName);
 
 
-void rt_init_types() {
+void rt_init(void) {
     /* string embeds a char array, "subtyping" it, and therefore has identical memory layout */
     struct rt_struct_field string_fields[1] = {{ rt_gettype_array(rt_gettype_simple(RT_KIND_UNSIGNED, sizeof(u8)), 0), "chars", 0 }};
     rt_types.string = rt_gettype_struct("string", 0, 1, string_fields);
@@ -43,6 +54,31 @@ void rt_init_types() {
     rt_types.cons = rt_gettype_struct("cons", sizeof(struct rt_cons), 2, cons_fields);
     rt_types.boxed_cons = rt_gettype_boxed(rt_types.cons);
 }
+
+void rt_cleanup(void) {
+    rt_gettype_free_all();
+
+    typemap_free(&typemap);
+    
+    for (u32 i = 0; i < symtab.size; ++i) {
+        struct symtab_entry *e = symtab.entries + i;
+        if (e->hash) {
+            free(e->value);
+        }
+    }
+    symtab_free(&symtab);
+}
+
+void rt_thread_ctx_cleanup(struct rt_thread_ctx *ctx) {
+    if (ctx->current_module) {
+        rt_sourcemap_free(&ctx->current_module->sourcemap);
+        rt_symbolmap_free(&ctx->current_module->symbolmap);
+    }
+    free(ctx->weakptrs);
+    rt_gc_free_all(ctx);
+    *ctx = (struct rt_thread_ctx) {0,};
+}
+
 
 struct rt_type *rt_lookup_simple_type(struct rt_any sym) {
     assert(rt_any_is_symbol(sym));
@@ -86,14 +122,6 @@ struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str) {
     memcpy(string->data, str, length + 1);
     return rt_any_from_string(string);
 }
-
-
-DECL_HASH_TABLE(symtab, const char *, struct rt_symbol *)
-IMPL_HASH_TABLE(symtab, const char *, struct rt_symbol *, hashutil_str_hash, hashutil_str_equals)
-
-static struct symtab symtab;
-
-/* TODO: add locking around symtab access if threading becomes a thing */
 
 struct rt_any rt_get_symbol(const char *str) {
     struct rt_symbol *sym;

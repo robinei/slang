@@ -153,6 +153,19 @@ static void rt_gc_mark_single(struct rt_thread_ctx *ctx, char *ptr, struct rt_ty
     }
 }
 
+
+static void free_boxes(struct rt_thread_ctx *ctx, struct rt_box *boxes) {
+    while (boxes) {
+        struct rt_box *box = boxes;
+        boxes = rt_boxheader_get_next(box->header);
+        if (ctx->free_func) {
+            ctx->free_func(ctx->free_func_userdata, box);
+        } else {
+            free(box);
+        }
+    }
+}
+
 void rt_gc_run(struct rt_thread_ctx *ctx) {
     /* mark */
     ctx->num_weakptrs = 0;
@@ -212,15 +225,10 @@ void rt_gc_run(struct rt_thread_ctx *ctx) {
     }
 
     /* free unreachable boxes. could be done on another thread */
-    u32 free_count = 0;
-    while (unreachable) {
-        struct rt_box *box = unreachable;
-        unreachable = rt_boxheader_get_next(box->header);
-        if (ctx->free_func) {
-            ctx->free_func(ctx->free_func_userdata, box);
-        } else {
-            free(box);
-        }
-        ++free_count;
-    }
+    free_boxes(ctx, unreachable);
+}
+
+void rt_gc_free_all(struct rt_thread_ctx *ctx) {
+    free_boxes(ctx, ctx->boxes);
+    ctx->boxes = NULL;
 }

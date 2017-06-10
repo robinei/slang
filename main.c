@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
     struct rt_thread_ctx ctx = {0,};
     struct rt_module mod = {0,};
 
-    rt_init_types();
+    rt_init();
 
     assert(rt_get_symbol("sym").u.ptr == rt_get_symbol("sym").u.ptr);
     assert(rt_any_equals(rt_new_u8(23), rt_new_i64(23)));
@@ -72,5 +72,8 @@ int main(int argc, char *argv[]) {
 
     rt_sourcemap_clear(&mod.sourcemap);
     rt_gc_run(&ctx);
+
+    rt_thread_ctx_cleanup(&ctx);
+    rt_cleanup();
 }
 
