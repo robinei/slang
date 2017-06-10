@@ -1,4 +1,6 @@
 /main
+/runtests
+/libruntime.a
 /CMakeFiles/
 /CMakeCache.txt
 /cmake_install.cmake

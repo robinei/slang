@@ -165,6 +165,9 @@ struct rt_thread_ctx {
     u32 max_weakptrs;
     struct rt_weakptr_entry *weakptrs;
 
+    void (*free_func)(void *userdata, void *ptr);
+    void *free_func_userdata;
+
     /* will be set when compiling a module */
     struct rt_module *current_module;
 };

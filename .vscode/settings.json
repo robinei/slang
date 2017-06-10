@@ -4,7 +4,9 @@
         "CMakeCache.txt": true,
         "cmake_install.cmake": true,
         "Makefile": true,
-        "main": true
+        "main": true,
+        "runtests": true,
+        "libruntime.a": true
     },
     "files.associations": {
         "utility": "c",

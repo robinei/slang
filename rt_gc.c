@@ -216,8 +216,11 @@ void rt_gc_run(struct rt_thread_ctx *ctx) {
     while (unreachable) {
         struct rt_box *box = unreachable;
         unreachable = rt_boxheader_get_next(box->header);
-        free(box);
+        if (ctx->free_func) {
+            ctx->free_func(ctx->free_func_userdata, box);
+        } else {
+            free(box);
+        }
         ++free_count;
     }
-    printf("freed %d object(s)\n", free_count);
 }
