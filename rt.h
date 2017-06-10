@@ -36,6 +36,7 @@ enum rt_kind {
 
 enum {
     RT_TYPE_FLAG_WEAK_PTR = 1 << 0,
+    RT_TYPE_FLAG_NEED_GC_MARK = 1 << 1,
 };
 
 #define RT_FOREACH_SCALAR_TYPE(X) \
@@ -55,7 +56,7 @@ enum {
     X(bool, _bool, bool, RT_KIND_BOOL, 0)
 
 #define RT_FOREACH_SIMPLE_TYPE(X) \
-    X(struct rt_any, any, any, RT_KIND_ANY, 0) \
+    X(struct rt_any, any, any, RT_KIND_ANY, RT_TYPE_FLAG_NEED_GC_MARK) \
     X(void *, nil, nil, RT_KIND_NIL, 0) \
     RT_FOREACH_SCALAR_TYPE(X)
 

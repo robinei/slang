@@ -31,6 +31,7 @@ static struct symtab symtab;
 #define RT_DEF_TYPE_INIT(Type, VarName, ProperName, Kind, Flags) \
     rt_symbols.VarName = rt_get_symbol(#ProperName); \
     rt_types.VarName = rt_gettype_simple(Kind, sizeof(Type)); \
+    rt_types.VarName->flags = Flags; \
     typemap_put(&typemap, rt_symbols.VarName.u.symbol, rt_types.VarName);
 
 

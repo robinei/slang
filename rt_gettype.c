@@ -138,6 +138,9 @@ struct rt_type *rt_gettype_ptr(struct rt_type *target_type) {
         existing = existing->next;
     }
     struct rt_type *new_type = make_type(RT_KIND_PTR, sizeof(void *), &rt_types.types_ptr);
+    if (target_type->flags & RT_TYPE_FLAG_NEED_GC_MARK) {
+        new_type->flags |= RT_TYPE_FLAG_NEED_GC_MARK;
+    }
     new_type->u.ptr.target_type = target_type;
     new_type->desc = type_to_string(new_type);
     return new_type;
@@ -154,6 +157,7 @@ struct rt_type *rt_gettype_boxptr(struct rt_type *target_type, struct rt_type *b
         existing = existing->next;
     }
     struct rt_type *new_type = make_type(RT_KIND_PTR, sizeof(void *), &rt_types.types_boxptr);
+    new_type->flags |= RT_TYPE_FLAG_NEED_GC_MARK; /* always need to mark the box */
     new_type->u.ptr.target_type = target_type;
     new_type->u.ptr.box_type = box_type;
     new_type->u.ptr.box_offset = box_offset;
@@ -181,7 +185,7 @@ struct rt_type *rt_gettype_weak(struct rt_type *ptr_type) {
         existing = existing->next;
     }
     struct rt_type *new_type = make_type(RT_KIND_PTR, sizeof(void *), &rt_types.types_weakptr);
-    new_type->flags = RT_TYPE_FLAG_WEAK_PTR;
+    new_type->flags |= RT_TYPE_FLAG_WEAK_PTR | RT_TYPE_FLAG_NEED_GC_MARK;
     new_type->u.ptr.target_type = ptr_type->u.ptr.target_type;
     new_type->u.ptr.box_type = ptr_type->u.ptr.box_type;
     new_type->u.ptr.box_offset = ptr_type->u.ptr.box_offset;
@@ -204,6 +208,9 @@ struct rt_type *rt_gettype_array(struct rt_type *elem_type, rt_size_t length) {
         existing = existing->next;
     }
     struct rt_type *new_type = make_type(RT_KIND_ARRAY, size, &rt_types.types_array);
+    if (elem_type->flags & RT_TYPE_FLAG_NEED_GC_MARK) {
+        new_type->flags |= RT_TYPE_FLAG_NEED_GC_MARK;
+    }
     new_type->u.array.elem_type = elem_type;
     new_type->desc = type_to_string(new_type);
     return new_type;
@@ -232,6 +239,14 @@ struct rt_type *rt_gettype_struct(const char *name, rt_size_t size, u32 field_co
         }
         existing = existing->next;
     }
+    bool need_gc_mark = false;
+    for (u32 i = 0; i < field_count; ++i) {
+        struct rt_struct_field *f = fields + i;
+        if (f->type->flags & RT_TYPE_FLAG_NEED_GC_MARK) {
+            need_gc_mark = true;
+            break;
+        }
+    }
 #ifndef NDEBUG
     for (u32 i = 0; i < field_count - 1; ++i) {
         struct rt_struct_field *f = fields + i;
@@ -251,6 +266,9 @@ struct rt_type *rt_gettype_struct(const char *name, rt_size_t size, u32 field_co
     memcpy(new_fields, fields, sizeof(struct rt_struct_field) * field_count);
 
     struct rt_type *new_type = make_type(RT_KIND_STRUCT, size, &rt_types.types_struct);
+    if (need_gc_mark) {
+        new_type->flags |= RT_TYPE_FLAG_NEED_GC_MARK;
+    }
     new_type->u._struct.name = name; // TODO: copy?
     new_type->u._struct.field_count = field_count;
     new_type->u._struct.fields = new_fields;
