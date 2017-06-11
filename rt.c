@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-void rt_gc_free_all(struct rt_thread_ctx *ctx);
+void rt_gc_free_all(struct rt_task *task);
 void rt_gettype_free_all();
 
 
@@ -70,14 +70,14 @@ void rt_cleanup(void) {
     symtab_free(&symtab);
 }
 
-void rt_thread_ctx_cleanup(struct rt_thread_ctx *ctx) {
-    if (ctx->current_module) {
-        rt_sourcemap_free(&ctx->current_module->sourcemap);
-        rt_symbolmap_free(&ctx->current_module->symbolmap);
+void rt_task_cleanup(struct rt_task *task) {
+    if (task->current_module) {
+        rt_sourcemap_free(&task->current_module->sourcemap);
+        rt_symbolmap_free(&task->current_module->symbolmap);
     }
-    free(ctx->weakptrs);
-    rt_gc_free_all(ctx);
-    *ctx = (struct rt_thread_ctx) {0,};
+    free(task->weakptrs);
+    rt_gc_free_all(task);
+    *task = (struct rt_task) {0,};
 }
 
 
@@ -91,14 +91,14 @@ struct rt_type *rt_lookup_simple_type(struct rt_any sym) {
 }
 
 
-struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct rt_any cdr) {
-    struct rt_cons *cons = rt_gc_alloc(ctx, sizeof(struct rt_cons));
+struct rt_any rt_new_cons(struct rt_task *task, struct rt_any car, struct rt_any cdr) {
+    struct rt_cons *cons = rt_gc_alloc(task, sizeof(struct rt_cons));
     cons->car = car;
     cons->cdr = cdr;
     return rt_any_from_cons(cons);
 }
 
-struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct rt_type *ptr_type) {
+struct rt_any rt_new_array(struct rt_task *task, rt_size_t length, struct rt_type *ptr_type) {
     assert(ptr_type->kind == RT_KIND_PTR);
     assert(ptr_type->u.ptr.box_type);
     assert(!ptr_type->u.ptr.box_offset);
@@ -111,14 +111,14 @@ struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct r
     rt_size_t elem_size = elem_type->size;
     assert(elem_size);
     
-    void *array = rt_gc_alloc(ctx, sizeof(rt_size_t) + length*elem_size);
+    void *array = rt_gc_alloc(task, sizeof(rt_size_t) + length*elem_size);
     *(rt_size_t *)array = length;
     return rt_any_from_ptr(ptr_type, array);
 }
 
-struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str) {
+struct rt_any rt_new_string(struct rt_task *task, const char *str) {
     rt_size_t length = strlen(str);
-    struct rt_string *string = rt_gc_alloc(ctx, sizeof(struct rt_string) + length + 1);
+    struct rt_string *string = rt_gc_alloc(task, sizeof(struct rt_string) + length + 1);
     string->length = length;
     memcpy(string->data, str, length + 1);
     return rt_any_from_string(string);

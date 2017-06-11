@@ -64,6 +64,7 @@ struct rt_type {
     enum rt_kind kind;
     u32 flags;
 
+    /* human readable description */
     const char *desc;
 
     /* the size of a storage location of this type.
@@ -118,7 +119,7 @@ struct rt_fun_param {
     Type VarName;
 
 struct rt_any {
-    /* non't use directly as it can be NULL which should mean the type is rt_types.nil */
+    /* don't use directly as it can be NULL which should mean the type is rt_types.nil */
     struct rt_type *_type;
 
     union {
@@ -149,7 +150,7 @@ struct rt_weakptr_entry {
     struct rt_type *type;
 };
 
-struct rt_thread_ctx {
+struct rt_task {
     /* array of pointers to active roots. used for GC mark phase.
        the first element is actually a pointer to another root array, so this
        forms a linked list of root arrays, one per stack frame.
@@ -222,7 +223,7 @@ extern struct rt_any rt_nil;
 
 void rt_init(void);
 void rt_cleanup(void);
-void rt_thread_ctx_cleanup(struct rt_thread_ctx *ctx);
+void rt_task_cleanup(struct rt_task *task);
 
 struct rt_type *rt_gettype_simple(enum rt_kind kind, rt_size_t size);
 struct rt_type *rt_gettype_ptr(struct rt_type *target_type);
@@ -260,14 +261,14 @@ bool rt_any_equals(struct rt_any a, struct rt_any b);
 
 /* allocate a boxed chunk of memory which will be managed by the GC.
    the box header precedes the location pointed to by the returned pointer */
-void *rt_gc_alloc(struct rt_thread_ctx *ctx, rt_size_t size);
-void rt_gc_run(struct rt_thread_ctx *ctx);
+void *rt_gc_alloc(struct rt_task *task, rt_size_t size);
+void rt_gc_run(struct rt_task *task);
 
-struct rt_any rt_read(struct rt_thread_ctx *ctx, const char *text);
+struct rt_any rt_read(struct rt_task *task, const char *text);
 
 void rt_print(struct rt_any any);
 
-struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any parent_form, struct rt_any form);
+struct rt_type *rt_parse_type(struct rt_task *task, struct rt_any parent_form, struct rt_any form);
 
 
 #define RT_DEF_SCALAR_MAKER(Type, VarName, ProperName, Kind, Flags) \
@@ -279,9 +280,9 @@ RT_FOREACH_SCALAR_TYPE(RT_DEF_SCALAR_MAKER)
 
 
 struct rt_type *rt_lookup_simple_type(struct rt_any sym);
-struct rt_any rt_new_cons(struct rt_thread_ctx *ctx, struct rt_any car, struct rt_any cdr);
-struct rt_any rt_new_array(struct rt_thread_ctx *ctx, rt_size_t length, struct rt_type *ptr_type);
-struct rt_any rt_new_string(struct rt_thread_ctx *ctx, const char *str);
+struct rt_any rt_new_cons(struct rt_task *task, struct rt_any car, struct rt_any cdr);
+struct rt_any rt_new_array(struct rt_task *task, rt_size_t length, struct rt_type *ptr_type);
+struct rt_any rt_new_string(struct rt_task *task, const char *str);
 struct rt_any rt_get_symbol(const char *str);
 
 struct rt_cons {

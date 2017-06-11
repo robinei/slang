@@ -5,15 +5,15 @@
 #include <stdarg.h>
 
 struct parse_state {
-    struct rt_thread_ctx *ctx;
+    struct rt_task *task;
     struct rt_module *mod;
 };
 
-static void parse_error(struct rt_thread_ctx *ctx, struct rt_any form, const char *fmt, ...) {
+static void parse_error(struct rt_task *task, struct rt_any form, const char *fmt, ...) {
     struct rt_sourceloc loc;
     if (rt_any_is_cons(form) &&
-        ctx->current_module &&
-         rt_sourcemap_get(&ctx->current_module->sourcemap, form.u.cons, &loc))
+        task->current_module &&
+         rt_sourcemap_get(&task->current_module->sourcemap, form.u.cons, &loc))
     {
         printf("line %d, col %d: ", loc.line + 1, loc.col + 1);
     } else {
@@ -27,18 +27,18 @@ static void parse_error(struct rt_thread_ctx *ctx, struct rt_any form, const cha
     exit(1);
 }
 
-struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any valid_cons, struct rt_any form) {
+struct rt_type *rt_parse_type(struct rt_task *task, struct rt_any valid_cons, struct rt_any form) {
     assert(rt_any_is_cons(valid_cons));
 
     if (!rt_any_is_cons(form)) {
         if (!rt_any_is_symbol(form)) {
-            parse_error(ctx, valid_cons, "invalid type");
+            parse_error(task, valid_cons, "invalid type");
             return NULL;
         }
 
         struct rt_type *type = rt_lookup_simple_type(form);
         if (type == NULL) {
-            parse_error(ctx, valid_cons, "invalid type");
+            parse_error(task, valid_cons, "invalid type");
             return NULL;
         }
         return type;
@@ -47,7 +47,7 @@ struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any valid_con
     struct rt_any cons1 = form;
     struct rt_any type_sym = rt_car(cons1.u.ptr);
     if (!rt_any_is_symbol(type_sym)) {
-        parse_error(ctx, cons1, "invalid type");
+        parse_error(task, cons1, "invalid type");
         return NULL;
     }
 
@@ -55,33 +55,33 @@ struct rt_type *rt_parse_type(struct rt_thread_ctx *ctx, struct rt_any valid_con
     if (type_sym.u.ptr == arr.u.ptr) {
         struct rt_any cons2 = rt_cdr(cons1.u.ptr);
         if (!rt_any_is_cons(cons2)) {
-            parse_error(ctx, cons1, "invalid array type");
+            parse_error(task, cons1, "invalid array type");
             return NULL;
         }
-        struct rt_type *elem_type = rt_parse_type(ctx, cons2, rt_car(cons2.u.ptr));
+        struct rt_type *elem_type = rt_parse_type(task, cons2, rt_car(cons2.u.ptr));
         struct rt_any cons3 = rt_cdr(cons2.u.ptr);
         if (!rt_any_is_cons(cons3)) {
             if (rt_any_is_nil(cons3)) {
                 return rt_gettype_array(elem_type, 0);
             }
-            parse_error(ctx, cons2, "invalid array type");
+            parse_error(task, cons2, "invalid array type");
             return NULL;
         }
         struct rt_any elem_count = rt_any_to_unsigned(rt_car(cons3.u.ptr));
         if (!rt_any_is_unsigned(elem_count)) {
-            parse_error(ctx, cons3, "invalid array type. expected element count");
+            parse_error(task, cons3, "invalid array type. expected element count");
             return NULL;
         }
         struct rt_any cons4 = rt_cdr(cons3.u.ptr);
         if (!rt_any_is_nil(cons4)) {
-            parse_error(ctx, cons3, "invalid array type");
+            parse_error(task, cons3, "invalid array type");
             return NULL;
         }
         u64 count = rt_any_to_u64(elem_count);
         return rt_gettype_array(elem_type, count);
     }
 
-    parse_error(ctx, cons1, "unrecognized type: %s", ((struct rt_symbol *)form.u.ptr)->data);
+    parse_error(task, cons1, "unrecognized type: %s", ((struct rt_symbol *)form.u.ptr)->data);
     return NULL;
 }
 

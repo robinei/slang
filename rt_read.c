@@ -46,7 +46,7 @@ static bool is_symchar(char ch) {
 #define SCRATCH_LEN 1024
 
 struct reader_state {
-    struct rt_thread_ctx *ctx;
+    struct rt_task *task;
     struct rt_module *mod;
 
     const char *text;
@@ -106,7 +106,7 @@ static void skip_space(struct reader_state *state) {
         case '\n':
             spacestep(state);
             continue;
-        case ';': // line comment
+        case ';': /* line comment */
             do {
                 spacestep(state);
                 ch = peek(state, 0);
@@ -148,7 +148,7 @@ static struct rt_any read_string(struct reader_state *state) {
                 read_error(state, "string is too long");
             }
             scratch[len] = '\0';
-            return rt_new_string(state->ctx, scratch);
+            return rt_new_string(state->task, scratch);
         } else if (ch == '\\') {
             step(state);
             ch = peek(state, 0);
@@ -170,7 +170,7 @@ static struct rt_any read_string(struct reader_state *state) {
             case 'r': scratch[len++] = '\r'; break;
             case 't': scratch[len++] = '\t'; break;
             case 'v': scratch[len++] = '\v'; break;
-            // TODO: handle \nnn \xnn \unnnn \Unnnnnnnn
+            /* TODO: handle \nnn \xnn \unnnn \Unnnnnnnn */
             default: read_error(state, "unexpected escape char: %c", ch);
             }
             step(state);
@@ -219,7 +219,7 @@ static struct rt_any read_number(struct reader_state *state) {
     errno = 0;
     const char *end;
     const char *start = state->text + state->pos;
-    // TODO: handle unsigned numbers
+    /* TODO: handle unsigned numbers */
     i64 llval = my_strtoll(start, &end, 0);
     if (start == end) {
         read_error(state, "error parsing number");
@@ -254,16 +254,16 @@ static struct rt_any read_list(struct reader_state *state, char end) {
 
     struct rt_sourceloc orig_loc = state->loc;
     struct rt_any form = read_form(state);
-    struct rt_any result = rt_new_cons(state->ctx, form, read_list(state, end));
+    struct rt_any result = rt_new_cons(state->task, form, read_list(state, end));
     if (state->mod) {
-        // store location of all car forms, using the containing cons as key
+        /* store location of all car forms, using the containing cons as key */
         rt_sourcemap_put(&state->mod->sourcemap, result.u.ptr, orig_loc);
     }
     return result;
 }
 
 static struct rt_any read_form(struct reader_state *state) {
-    struct rt_thread_ctx *ctx = state->ctx;
+    struct rt_task *task = state->task;
     struct rt_any result = rt_nil;
     skip_space(state);
     char ch = peek(state, 0);
@@ -287,7 +287,7 @@ static struct rt_any read_form(struct reader_state *state) {
     } else if (ch == '\'') {
         step(state);
         struct rt_any form = read_form(state);
-        result = rt_new_cons(ctx, rt_get_symbol("quote"), form);
+        result = rt_new_cons(task, rt_get_symbol("quote"), form);
     } else if (ch == '"') {
         step(state);
         result = read_string(state);
@@ -306,11 +306,11 @@ static struct rt_any read_form(struct reader_state *state) {
             step(state);
             skip_space(state);
             struct rt_any sym = read_symbol(state);
-            result = rt_new_cons(ctx, rt_get_symbol("."), rt_new_cons(ctx, sym, rt_new_cons(ctx, result, rt_nil)));
+            result = rt_new_cons(task, rt_get_symbol("."), rt_new_cons(task, sym, rt_new_cons(task, result, rt_nil)));
         } else if (ch == '[') {
             step(state);
             struct rt_any list = read_list(state, ']');
-            result = rt_new_cons(ctx, result, list);
+            result = rt_new_cons(task, result, list);
         } else {
             break;
         }
@@ -318,13 +318,13 @@ static struct rt_any read_form(struct reader_state *state) {
     if (ch == ':') {
         step(state);
         struct rt_any typeform = read_form(state);
-        result = rt_new_cons(ctx, rt_get_symbol(":"), rt_new_cons(ctx, result, rt_new_cons(ctx, typeform, rt_nil)));
+        result = rt_new_cons(task, rt_get_symbol(":"), rt_new_cons(task, result, rt_new_cons(task, typeform, rt_nil)));
     }
     return result;
 }
 
-struct rt_any rt_read(struct rt_thread_ctx *ctx, const char *text) {
-    struct reader_state state = {ctx,};
+struct rt_any rt_read(struct rt_task *task, const char *text) {
+    struct reader_state state = {task,};
     state.text = text;
     return read_form(&state);
 }

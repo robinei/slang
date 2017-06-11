@@ -11,7 +11,7 @@ IMPL_HASH_TABLE(rt_symbolmap, struct rt_symbol *, struct rt_astnode *, hashutil_
 
 
 struct eval_state {
-    struct rt_thread_ctx *ctx;
+    struct rt_task *task;
     struct rt_module *mod;
 };
 

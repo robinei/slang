@@ -269,7 +269,7 @@ struct rt_type *rt_gettype_struct(const char *name, rt_size_t size, u32 field_co
     if (need_gc_mark) {
         new_type->flags |= RT_TYPE_FLAG_NEED_GC_MARK;
     }
-    new_type->u._struct.name = name; // TODO: copy?
+    new_type->u._struct.name = name; /* TODO: copy? */
     new_type->u._struct.field_count = field_count;
     new_type->u._struct.fields = new_fields;
     new_type->desc = type_to_string(new_type);
