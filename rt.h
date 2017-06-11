@@ -97,7 +97,7 @@ struct rt_type {
 
         struct {
             u32 param_count;
-            struct rt_fun_param *params;
+            struct rt_func_param *params;
             struct rt_type *return_type;
         } func;
     } u;
@@ -109,7 +109,7 @@ struct rt_struct_field {
     rt_size_t offset;
 };
 
-struct rt_fun_param {
+struct rt_func_param {
     struct rt_type *type;
     const char *name;
 };
@@ -129,6 +129,7 @@ struct rt_any {
         struct rt_cons *cons;
         struct rt_string *string;
         struct rt_symbol *symbol;
+        struct rt_func *func;
         
         RT_FOREACH_SCALAR_TYPE(RT_DEF_SCALAR_ANY_MEMBER)
     } u;
@@ -300,10 +301,6 @@ struct rt_symbol {
     char data[];
 };
 
-struct rt_func {
-    struct rt_astnode *ast;
-};
-
 #define rt_box_array_ref(ptr, type, index) (((type *)((char *)(ptr) + sizeof(rt_size_t)))[index])
 
 #define rt_car(ptr) (((struct rt_cons *)(ptr))->car)
@@ -313,12 +310,16 @@ struct rt_func {
 
 
 
+struct rt_func {
+    struct rt_astnode *body_epr;
+};
+
 struct rt_sourceloc {
     u32 line;
     u32 col;
 };
 
-/* map from cons address to source location */
+/* map from cons address to source location (of car element) */
 DECL_HASH_TABLE(rt_sourcemap, struct rt_cons *, struct rt_sourceloc)
 
 DECL_HASH_TABLE(rt_symbolmap, struct rt_symbol *, struct rt_astnode *)
@@ -326,6 +327,7 @@ DECL_HASH_TABLE(rt_symbolmap, struct rt_symbol *, struct rt_astnode *)
 struct rt_module {
     struct rt_sourcemap sourcemap;
     struct rt_symbolmap symbolmap;
+    struct rt_astnode *root_block;
 };
 
 
@@ -333,8 +335,9 @@ enum rt_astnode_type {
     RT_ASTNODE_LITERAL,
     RT_ASTNODE_SCOPE,
     RT_ASTNODE_BLOCK,
-    RT_ASTNODE_GET,
-    RT_ASTNODE_SET,
+    RT_ASTNODE_GET_GLOBAL,
+    RT_ASTNODE_GET_LOCAL,
+    RT_ASTNODE_SET_LOCAL,
     RT_ASTNODE_COND,
     RT_ASTNODE_LOOP,
     RT_ASTNODE_CALL,
@@ -342,7 +345,7 @@ enum rt_astnode_type {
 
 struct rt_scope_var {
     struct rt_type *type;
-    const char *name;
+    struct rt_symbol *name;
 };
 
 struct rt_astnode {
@@ -367,12 +370,18 @@ struct rt_astnode {
 
         struct {
             struct rt_symbol *name;
-        } get;
+        } get_global;
 
         struct {
             struct rt_symbol *name;
+            u32 stack_index;
+        } get_local;
+
+        struct {
+            struct rt_symbol *name;
+            u32 stack_index;
             struct rt_astnode *expr;
-        } set;
+        } set_local;
 
         struct {
             struct rt_astnode *pred_expr;
