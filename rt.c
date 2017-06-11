@@ -28,12 +28,14 @@ IMPL_HASH_TABLE(symtab, const char *, struct rt_symbol *, hashutil_str_hash, has
 static struct symtab symtab;
 
 
-#define RT_DEF_TYPE_INIT(Type, VarName, ProperName, Kind, Flags) \
+#define RT_INIT_TYPE(Type, VarName, ProperName, Kind, Flags) \
     rt_symbols.VarName = rt_get_symbol(#ProperName); \
     rt_types.VarName = rt_gettype_simple(Kind, sizeof(Type)); \
     rt_types.VarName->flags = Flags; \
     typemap_put(&typemap, rt_symbols.VarName.u.symbol, rt_types.VarName);
 
+#define RT_INIT_SYMBOL_SHORTCUT(VarName, ProperName) \
+    rt_symbols.VarName = rt_get_symbol(#ProperName);
 
 void rt_init(void) {
     /* string embeds a char array, "subtyping" it, and therefore has identical memory layout */
@@ -46,7 +48,8 @@ void rt_init(void) {
     rt_types.symbol = rt_gettype_struct("symbol", 0, 1, symbol_fields);
     rt_types.ptr_symbol = rt_gettype_ptr(rt_types.symbol);
 
-    RT_FOREACH_SIMPLE_TYPE(RT_DEF_TYPE_INIT)
+    RT_FOREACH_SIMPLE_TYPE(RT_INIT_TYPE)
+    RT_FOREACH_SYMBOL_SHORTCUT(RT_INIT_SYMBOL_SHORTCUT)
 
     struct rt_struct_field cons_fields[2] = {
         { rt_types.any, "car", offsetof(struct rt_cons, car) },
@@ -72,7 +75,8 @@ void rt_cleanup(void) {
 
 void rt_task_cleanup(struct rt_task *task) {
     if (task->current_module) {
-        rt_sourcemap_free(&task->current_module->sourcemap);
+        rt_sourcemap_free(&task->current_module->location_before_car);
+        rt_sourcemap_free(&task->current_module->location_after_car);
         rt_symbolmap_free(&task->current_module->symbolmap);
     }
     free(task->weakptrs);

@@ -275,3 +275,39 @@ struct rt_type *rt_gettype_struct(const char *name, rt_size_t size, u32 field_co
     new_type->desc = type_to_string(new_type);
     return new_type;
 }
+
+struct rt_type *rt_gettype_func(struct rt_type *return_type, u32 param_count, struct rt_func_param *params) {
+    struct rt_type *existing = rt_types.types_func;
+    while (existing) {
+        if (existing->u.func.return_type == return_type && existing->u.func.param_count == param_count) {
+            bool same_params = true;
+            for (u32 i = 0; i < param_count; ++i) {
+                struct rt_func_param *p1 = existing->u.func.params + i;
+                struct rt_func_param *p2 = params + i;
+                if (p1->type != p2->type || p1->name != p2->name) {
+                    same_params = false;
+                    break;
+                }
+            }
+            if (same_params) {
+                return existing;
+            }
+        }
+        existing = existing->next;
+    }
+#ifndef NDEBUG
+    for (u32 i = 0; i < param_count; ++i) {
+        struct rt_func_param *p = params + i;
+        assert(p->type->size);
+    }
+#endif
+    struct rt_func_param *new_params = malloc(sizeof(struct rt_func_param) * param_count);
+    memcpy(new_params, params, sizeof(struct rt_func_param) * param_count);
+
+    struct rt_type *new_type = make_type(RT_KIND_FUNC, sizeof(struct rt_func), &rt_types.types_func);
+    new_type->u.func.return_type = return_type;
+    new_type->u.func.param_count = param_count;
+    new_type->u.func.params = new_params;
+    new_type->desc = type_to_string(new_type);
+    return new_type;
+}

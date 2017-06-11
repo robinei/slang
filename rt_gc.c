@@ -141,8 +141,14 @@ void rt_gc_run(struct rt_task *task) {
     /* TODO: make hash table play nice with GC so we don't have to mark the keys manually */
     struct rt_module *module = task->current_module;
     if (module) {
-        for (u32 i = 0; i < module->sourcemap.size; ++i) {
-            struct rt_sourcemap_entry *e = module->sourcemap.entries + i;
+        for (u32 i = 0; i < module->location_before_car.size; ++i) {
+            struct rt_sourcemap_entry *e = module->location_before_car.entries + i;
+            if (e->hash) {
+                rt_gc_mark_value(task, (char *)&e->key, rt_types.boxed_cons);
+            }
+        }
+        for (u32 i = 0; i < module->location_after_car.size; ++i) {
+            struct rt_sourcemap_entry *e = module->location_after_car.entries + i;
             if (e->hash) {
                 rt_gc_mark_value(task, (char *)&e->key, rt_types.boxed_cons);
             }

@@ -3,6 +3,61 @@
 
 #include "rt.h"
 
+static void print_indent(u32 indent) {
+    for (u32 i = 0; i < indent; ++i) {
+        putchar(' ');
+    }
+}
+
+static void print_header(const char *name, struct rt_astnode *node, u32 indent) {
+    print_indent(indent); printf("%s: %s\n", name, node->result_type->desc);
+}
+
+static void print_ast(struct rt_astnode *node, u32 indent) {
+    switch (node->node_type) {
+    case RT_ASTNODE_LITERAL: {
+        print_header("literal", node, indent);
+        if (rt_any_is_ptr(node->const_value) && node->const_value._type->u.ptr.target_type->kind == RT_KIND_FUNC) {
+            print_ast(node->const_value.u.func->body_expr, indent + 4);
+        } else {
+            print_indent(indent + 4); rt_print(node->const_value); printf("\n");
+        }
+        break;
+    }
+    case RT_ASTNODE_SCOPE:
+        print_header("scope", node, indent);
+        print_ast(node->u.scope.expr, indent + 4);
+        break;
+    case RT_ASTNODE_BLOCK:
+        print_header("block", node, indent);
+        for (u32 i = 0; i < node->u.block.expr_count; ++i) {
+            print_ast(node->u.block.exprs[i], indent + 4);
+        }
+        break;
+    case RT_ASTNODE_GET_GLOBAL:
+        print_header("get_global", node, indent);
+        break;
+    case RT_ASTNODE_GET_LOCAL:
+        print_header("get_local", node, indent);
+        break;
+    case RT_ASTNODE_SET_LOCAL:
+        print_header("set_local", node, indent);
+        break;
+    case RT_ASTNODE_COND:
+        print_header("cons", node, indent);
+        break;
+    case RT_ASTNODE_LOOP:
+        print_header("loop", node, indent);
+        break;
+    case RT_ASTNODE_CALL:
+        print_header("call", node, indent);
+        break;
+    }
+}
+
+
+
+struct rt_astnode *rt_parse_module(struct rt_task *task, struct rt_any toplevel_module_list);
 
 int main(int argc, char *argv[]) {
     struct rt_task task = {0,};
@@ -34,13 +89,11 @@ int main(int argc, char *argv[]) {
     rt_box_array_ref(arr.u.ptr, struct rt_any, 6) = rt_get_symbol("sym");
     rt_box_array_ref(arr.u.ptr, struct rt_any, 7) = rt_read(&task, "(foo bar baz)");
 
-    struct rt_any parent_form = rt_read(&task, "((array u32 8))");
-    rt_print(parent_form); printf("\n");
-    struct rt_type *type = rt_parse_type(&task, parent_form, rt_car(parent_form.u.ptr));
-    printf("type desc: %s\n", type->desc);
-
-    struct rt_any input_form = rt_read(&task, "(fun test (x:u32 y:cons) (+ x[0] y.car))");
+    struct rt_any input_form = rt_read(&task, "((def test (fn (x:u32) 1 2 3)))");
     rt_print(input_form); printf("\n");
+
+    struct rt_astnode *node = rt_parse_module(&task, input_form);
+    print_ast(node, 0);
 
     rt_print(arr); printf("\n");
 
@@ -53,7 +106,7 @@ int main(int argc, char *argv[]) {
     rt_print(arr); printf("\n");
 
     rt_box_array_ref(arr.u.ptr, struct rt_any, 0) = rt_nil;
-    rt_cdr(cons.u.ptr) = rt_nil;
+    rt_cdr(cons) = rt_nil;
     rt_gc_run(&task);
 
     printf("-\n");
@@ -70,7 +123,8 @@ int main(int argc, char *argv[]) {
 
     printf("-\n");
 
-    rt_sourcemap_clear(&mod.sourcemap);
+    rt_sourcemap_clear(&mod.location_before_car);
+    rt_sourcemap_clear(&mod.location_after_car);
     rt_gc_run(&task);
 
     rt_task_cleanup(&task);

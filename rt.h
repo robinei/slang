@@ -111,7 +111,7 @@ struct rt_struct_field {
 
 struct rt_func_param {
     struct rt_type *type;
-    const char *name;
+    struct rt_symbol *name;
 };
 
 
@@ -177,10 +177,24 @@ struct rt_task {
 };
 
 
+/* exclude symbols which can be defined using RT_FOREACH_SIMPLE_TYPE */
+#define RT_FOREACH_SYMBOL_SHORTCUT(X) \
+    X(array, array) \
+    X(ptr, ptr) \
+    X(def, def) \
+    X(fn, fn) \
+    X(_if, if) \
+    X(_do, do) \
+    X(ascribe, :)
+
+#define RT_DEF_SYMBOL_SHORTCUT(VarName, ProperName) \
+    struct rt_any VarName;
+
 #define RT_DEF_TYPE_SYMBOL(Type, VarName, ProperName, Kind, Flags) \
     struct rt_any VarName;
 
 struct rt_symbol_index {
+    RT_FOREACH_SYMBOL_SHORTCUT(RT_DEF_SYMBOL_SHORTCUT)
     RT_FOREACH_SIMPLE_TYPE(RT_DEF_TYPE_SYMBOL)
 };
 
@@ -199,6 +213,7 @@ struct rt_type_index {
     struct rt_type *types_weakptr;
     struct rt_type *types_array;
     struct rt_type *types_struct;
+    struct rt_type *types_func;
 
     /* type shorthands */
 
@@ -235,6 +250,7 @@ struct rt_type *rt_gettype_weak_boxed(struct rt_type *target_type);
 struct rt_type *rt_gettype_array(struct rt_type *elem_type, rt_size_t length);
 struct rt_type *rt_gettype_boxed_array(struct rt_type *elem_type, rt_size_t length);
 struct rt_type *rt_gettype_struct(const char *name, rt_size_t size, u32 field_count, struct rt_struct_field *fields);
+struct rt_type *rt_gettype_func(struct rt_type *return_type, u32 param_count, struct rt_func_param *params);
 
 bool rt_any_to_bool(struct rt_any a);
 f64 rt_any_to_f64(struct rt_any a);
@@ -252,6 +268,7 @@ bool rt_any_equals(struct rt_any a, struct rt_any b);
 #define rt_any_is_signed(any) ((any)._type && (any)._type->kind == RT_KIND_SIGNED)
 #define rt_any_is_real(any) ((any)._type && (any)._type->kind == RT_KIND_REAL)
 #define rt_any_is_func(any) ((any)._type && (any)._type->kind == RT_KIND_FUNC)
+#define rt_any_is_ptr(any) ((any)._type && (any)._type->kind == RT_KIND_PTR)
 #define rt_any_is_cons(any) (rt_any_get_type(any) == rt_types.boxed_cons)
 #define rt_any_is_symbol(any) (rt_any_get_type(any) == rt_types.ptr_symbol)
 
@@ -268,8 +285,6 @@ void rt_gc_run(struct rt_task *task);
 struct rt_any rt_read(struct rt_task *task, const char *text);
 
 void rt_print(struct rt_any any);
-
-struct rt_type *rt_parse_type(struct rt_task *task, struct rt_any parent_form, struct rt_any form);
 
 
 #define RT_DEF_SCALAR_MAKER(Type, VarName, ProperName, Kind, Flags) \
@@ -303,15 +318,15 @@ struct rt_symbol {
 
 #define rt_box_array_ref(ptr, type, index) (((type *)((char *)(ptr) + sizeof(rt_size_t)))[index])
 
-#define rt_car(ptr) (((struct rt_cons *)(ptr))->car)
-#define rt_cdr(ptr) (((struct rt_cons *)(ptr))->cdr)
+#define rt_car(any) (((any).u.cons)->car)
+#define rt_cdr(any) (((any).u.cons)->cdr)
 
 
 
 
 
 struct rt_func {
-    struct rt_astnode *body_epr;
+    struct rt_astnode *body_expr;
 };
 
 struct rt_sourceloc {
@@ -325,7 +340,8 @@ DECL_HASH_TABLE(rt_sourcemap, struct rt_cons *, struct rt_sourceloc)
 DECL_HASH_TABLE(rt_symbolmap, struct rt_symbol *, struct rt_astnode *)
 
 struct rt_module {
-    struct rt_sourcemap sourcemap;
+    struct rt_sourcemap location_before_car;
+    struct rt_sourcemap location_after_car;
     struct rt_symbolmap symbolmap;
     struct rt_astnode *root_block;
 };

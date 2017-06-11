@@ -103,7 +103,7 @@ bool rt_any_equals(struct rt_any a, struct rt_any b) {
     case RT_KIND_REAL:
         return rt_any_to_f64(a) == rt_any_to_f64(b);
     case RT_KIND_FUNC:
-        // TODO: func equality?
+        /* TODO: func equality? */
     default:
         return false;
     }

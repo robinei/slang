@@ -252,13 +252,17 @@ static struct rt_any read_list(struct reader_state *state, char end) {
         return rt_nil;
     }
 
-    struct rt_sourceloc orig_loc = state->loc;
+    struct rt_sourceloc loc_before_car = state->loc;
     struct rt_any form = read_form(state);
+    struct rt_sourceloc loc_after_car = state->loc;
+
     struct rt_any result = rt_new_cons(state->task, form, read_list(state, end));
+
     if (state->mod) {
-        /* store location of all car forms, using the containing cons as key */
-        rt_sourcemap_put(&state->mod->sourcemap, result.u.ptr, orig_loc);
+        rt_sourcemap_put(&state->mod->location_before_car, result.u.cons, loc_before_car);
+        rt_sourcemap_put(&state->mod->location_after_car, result.u.cons, loc_after_car);
     }
+
     return result;
 }
 

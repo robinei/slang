@@ -95,7 +95,7 @@ static struct rt_any rt_ast_eval_expr(struct eval_state *state, struct rt_astnod
         }
 
         u32 arg_count = node->u.call.arg_count;
-        struct rt_astnode *body = func_result.u.func->body_epr;
+        struct rt_astnode *body = func_result.u.func->body_expr;
 
         assert(func_result._type->u.func.param_count == arg_count);
         if (arg_count > 0) {
